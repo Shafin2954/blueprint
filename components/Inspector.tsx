@@ -83,6 +83,11 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
   return (
     <aside className="bp-panel pointer-events-auto ml-auto max-h-full w-[300px] max-w-[calc(100vw-32px)] overflow-y-auto p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto">
       <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
+      <div className="mb-2 flex items-center justify-end md:hidden">
+        <button onClick={() => usePlan.getState().select(null)} className="bp-btn bp-mono px-3 py-1 text-[11px]" aria-label="Close the editor">
+          Done ✕
+        </button>
+      </div>
       <div className="flex items-center gap-2">
         <span className={`bp-${node.kind} bp-accent`}><Symbol kind={node.kind} size={16} /></span>
         <span className="bp-mono whitespace-nowrap text-[11px] uppercase tracking-[0.2em] text-[var(--ink-dim)]">{node.ref}</span>

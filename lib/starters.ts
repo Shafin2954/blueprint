@@ -109,14 +109,14 @@ export const STARTERS: Starter[] = [
         ],
       ),
     tour: [
-      { text: "This sheet is a little mystery: who took the cake? Each box is a card, and arrows connect them. Drag the paper to look around; pinch or ctrl+scroll to zoom.", focus: "Q-01" },
+      { text: "This sheet is a little mystery: who took the cake? Each box is a card, and arrows connect them. Drag the paper to look around; pinch (or Ctrl+scroll) to zoom.", focus: "Q-01" },
       { text: "Evidence is something you found. It has a “how sure” value, and can name where it came from, carry a photo, or link to a source.", focus: "E-01" },
       { text: "A claim is something that might be true. Arrows marked + support it, ≠ contradict it. The bar shows the weight for (green) against (red).", focus: "C-01" },
       { text: "Tap any card to edit it. Try dragging the “How sure am I?” slider and watch the bars and flags react.", focus: "E-02", select: true },
       { text: "Plot holes points out where reasoning doesn't hold. Here: you're 80% sure the dog did it, but the evidence leans the other way — and the conclusion is far surer than the claim it rests on.", tab: "holes" },
       { text: "Big picture ranks the possible answers to a question by their evidence, next to how sure you said you are.", tab: "picture" },
       { text: "To link cards, drag from a card's right-hand dot to another card — or select a card and press “Link to…”. Shift-click (or Gather) several cards to combine them into a conclusion.", focus: "D-01" },
-      { text: "That's the core. Press Start any time for templates, or New for a blank sheet — both can be undone. Press ? for help on anything." },
+      { text: "That's the core. Start (toolbar) has templates for your own questions; Sheets keeps several boards. Press ? for help on anything." },
     ],
   },
   {

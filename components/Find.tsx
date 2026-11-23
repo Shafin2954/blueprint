@@ -13,7 +13,9 @@ export function findCards(nodes: Record<string, PlanNode>, q: string): PlanNode[
     .map((n) => {
       const title = n.title.toLowerCase();
       const hay = `${title} ${n.body} ${n.ref} ${n.source ?? ""} ${KIND_META[n.kind].label}`.toLowerCase();
-      if (!terms.every((t) => hay.includes(t))) return null;
+      // Forgiving about word endings: "salary" finds "salaries", "assume" finds "assumption".
+      const hit = (t: string) => hay.includes(t) || (t.length >= 5 && hay.includes(t.slice(0, -1))) || (t.length >= 7 && hay.includes(t.slice(0, -2)));
+      if (!terms.every(hit)) return null;
       // Title and ref hits first, then anything else.
       const score = terms.reduce((s, t) => s + (title.includes(t) ? 3 : 0) + (n.ref.toLowerCase() === t ? 5 : 0) + 1, 0);
       return { n, score };

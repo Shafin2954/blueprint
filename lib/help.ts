@@ -153,8 +153,8 @@ export const HELP: HelpEntry[] = [
   },
   {
     id: "linking", group: "Links", title: "Making and changing links",
-    summary: "Drag from a card's right port; click a link to change it.",
-    body: "Drag from the round port on a card's right edge onto another card. Drop on empty paper instead and the natural next card appears there (evidence → claim, claim → conclusion, step → step). Click any link to switch between feeds, supports and contradicts, or delete it. Links that would loop back on themselves are refused.",
+    summary: "Drag from a card's right port; a new link asks what it means.",
+    body: "Drag from the round port on a card's right edge onto another card. Drop on empty paper instead and the natural next card appears there (evidence → claim, claim → conclusion, step → step). A new link opens its panel so you can say what it means (supports, contradicts, feeds) and how strong it is; click any link later to change it or delete it. Links that would loop back on themselves are refused.",
     keywords: "connect arrow port edge drag",
   },
 

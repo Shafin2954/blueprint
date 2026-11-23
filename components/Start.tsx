@@ -4,13 +4,24 @@ import { useEffect, useState } from "react";
 import { STARTERS, type Starter, type TourStep } from "@/lib/starters";
 import { usePlan } from "@/lib/store";
 import { toast } from "@/lib/history";
-import { newSheet } from "@/lib/sheets";
+import { findSheetByName, newSheet, switchSheet } from "@/lib/sheets";
 import { Symbol } from "./NodeCard";
 
 const fitAll = () => {
   const wide = window.innerWidth >= 900;
   usePlan.getState().fit(window.innerWidth, window.innerHeight, wide ? 300 : 0);
 };
+
+/** For the tour: reuse an untouched copy of the example if there is one, rather than piling up copies. */
+export function openForTour(st: Starter) {
+  const fresh = st.build();
+  const count = Object.keys(fresh.nodes).length;
+  const s = usePlan.getState();
+  if (s.project === st.title && Object.keys(s.nodes).length === count) return fitAll();
+  const existing = findSheetByName(st.title);
+  if (existing && existing.cards === count && switchSheet(existing.id)) return fitAll();
+  loadStarter(st);
+}
 
 /** Open an example or template. Never overwrites work: a non-empty sheet stays, and this opens as a new one. */
 export function loadStarter(st: Starter) {
@@ -113,22 +124,29 @@ export function Tour({ steps, onEnd }: { steps: TourStep[]; onEnd: () => void })
 
   useEffect(() => {
     const s = usePlan.getState();
-    if (step.focus) {
-      const n = Object.values(s.nodes).find((x) => x.ref === step.focus);
-      if (n) s.focus(n.id, window.innerWidth, window.innerHeight, !!step.select);
-      if (!step.select) s.select(null);
-    } else s.select(null);
+    // On phones the editor would cover the tour, so the tour never opens it there.
+    const openEditor = !!step.select && window.innerWidth >= 768;
+    const n = step.focus ? Object.values(s.nodes).find((x) => x.ref === step.focus) : undefined;
+    if (n) s.focus(n.id, window.innerWidth, window.innerHeight, openEditor);
+    if (!openEditor) s.select(null);
+    usePlan.setState({ spotlight: n?.id ?? null });
     if (step.tab) window.dispatchEvent(new CustomEvent("blueprint-tab", { detail: step.tab }));
   }, [step]);
 
+  const end = () => {
+    usePlan.setState({ spotlight: null });
+    fitAll();
+    onEnd();
+  };
+
   return (
-    <div role="dialog" aria-label="Tour" className="bp-panel pointer-events-auto w-[min(440px,calc(100vw-32px))] border-[var(--spark)] p-4 max-md:w-full">
+    <div role="dialog" aria-label="Tour" className="bp-panel pointer-events-auto w-[min(440px,calc(100vw-32px))] border-[var(--spark)] p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:w-auto">
       <div className="flex items-center gap-2">
         <span className="bp-mono text-[10px] uppercase tracking-[0.22em] text-[var(--spark)]">Tour</span>
         <span className="bp-mono text-[10px] text-[var(--ink-faint)]">
           {i + 1} / {steps.length}
         </span>
-        <button onClick={onEnd} className="bp-mono ml-auto text-[11px] text-[var(--ink-dim)] hover:text-[var(--ink)]">end ✕</button>
+        <button onClick={end} className="bp-mono ml-auto text-[11px] text-[var(--ink-dim)] hover:text-[var(--ink)]">end ✕</button>
       </div>
       <p className="mt-2 text-[13px] leading-relaxed text-[var(--ink)]">{step.text}</p>
       <div className="mt-3 flex items-center gap-2">
@@ -141,7 +159,7 @@ export function Tour({ steps, onEnd }: { steps: TourStep[]; onEnd: () => void })
         {i < steps.length - 1 ? (
           <button onClick={() => setI(i + 1)} className="bp-btn bp-btn-primary">Next</button>
         ) : (
-          <button onClick={onEnd} className="bp-btn bp-btn-primary">Done</button>
+          <button onClick={end} className="bp-btn bp-btn-primary">Done</button>
         )}
       </div>
     </div>

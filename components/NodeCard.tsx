@@ -156,6 +156,7 @@ function NodeCard({
   const img = useImageSrc(node.image);
   const editing = usePlan((s) => s.editing === node.id);
   const readOnly = usePlan((s) => s.viewing !== null);
+  const spot = usePlan((s) => s.spotlight === node.id);
   const setEditing = (on: boolean) => usePlan.getState().setEditing(on ? node.id : null);
   const done = node.kind === "step" ? node.status === "done" : md === 1;
 
@@ -165,7 +166,7 @@ function NodeCard({
       role="group"
       aria-label={`${KIND_META[node.kind].label} ${node.ref}: ${node.title}`}
       aria-current={selected || undefined}
-      className={`bp-card bp-${node.kind} absolute cursor-grab active:cursor-grabbing ${selected ? "bp-selected" : ""} ${done ? "bp-done" : ""} ${gathered ? "bp-gathered" : ""}`}
+      className={`bp-card bp-${node.kind} absolute cursor-grab active:cursor-grabbing ${selected ? "bp-selected" : ""} ${done ? "bp-done" : ""} ${gathered ? "bp-gathered" : ""} ${spot ? "bp-spotlight" : ""}`}
       style={{ left: node.x, top: node.y, width: NODE_W, opacity: dimmed ? 0.38 : 1 }}
     >
       <div className="flex h-[44px] items-center gap-2 px-3">

@@ -6,6 +6,7 @@ import { decompose, split, type Draft } from "./generate";
 import { wouldCycle } from "./graph";
 import { defaultRel } from "./reason";
 import { fitAround } from "./frames";
+import { estimateHeight, findFreeSpot } from "./layout";
 import { BELIEF_KINDS, DEFAULT_CONFIDENCE, KIND_META, type Edge, type Frame, type Kind, type PlanNode, type Rel, type Status, type Strength, type View } from "./types";
 
 type Selection = { type: "node" | "edge" | "frame"; id: string } | null;
@@ -33,6 +34,10 @@ interface PlanState {
   /** A card the user just created: the inspector focuses its title once, then clears this. */
   fresh: string | null;
   clearFresh: () => void;
+  /** Id of the most recently created link. */
+  lastEdge: string | null;
+  /** Card the tour is pointing at (glows). */
+  spotlight: string | null;
   /** Card whose title is being edited in place on the sheet. */
   editing: string | null;
   setEditing: (id: string | null) => void;
@@ -79,9 +84,17 @@ interface PlanState {
   splitStep: (id: string) => void;
   promote: (id: string) => void;
   focus: (id: string, w: number, h: number, select?: boolean) => void;
+  /** Pan just enough that a card isn't hidden behind the panels. */
+  reveal: (id: string) => void;
+  /** Add a card in the nearest free space (next to the selected card, or mid-screen). */
+  addCardNear: (kind: Kind, title?: string) => string;
+  /** The link just made by a gesture: its panel opens so its meaning can be chosen. */
+  freshEdge: string | null;
+  /** Select the link just created and flag it, so its panel asks what it means. */
+  selectFreshEdge: () => void;
   /** Replace the sheet with a ready-made one (example or template). Undoable. */
   loadSheet: (s: { project: string; nodes: Record<string, PlanNode>; edges: Record<string, Edge>; counters: Record<Kind, number>; frames?: Record<string, Frame> }) => void;
-  fit: (w: number, h: number, padLeft?: number) => void;
+  fit: (w: number, h: number, padLeft?: number, padRight?: number) => void;
   importPlan: (data: unknown) => boolean;
   reset: () => void;
 }
@@ -126,6 +139,16 @@ function makeNode(
   return [node, { ...counters, [kind]: n }];
 }
 
+/**
+ * The part of the screen not covered by panels, so focusing on a card puts it where it
+ * can be seen: right of the sidebar and left of the inspector on wide screens, above
+ * the bottom sheet on phones.
+ */
+export function visibleArea(w: number, h: number, panelOpen: boolean) {
+  if (w >= 900) return { left: 330, right: panelOpen ? w - 330 : w - 24, top: 110, bottom: h - 24 };
+  return { left: 12, right: w - 12, top: 120, bottom: panelOpen ? h * 0.42 : h - 24 };
+}
+
 /** True while looking at a shared link: everything is view-only. */
 export const useReadOnly = () => usePlan((s) => s.viewing !== null);
 
@@ -147,14 +170,22 @@ export const usePlan = create<PlanState>()(
       viewing: null,
       fresh: null,
       clearFresh: () => set({ fresh: null }),
+      lastEdge: null,
+      spotlight: null,
+      freshEdge: null,
+      selectFreshEdge: () => {
+        const id = get().lastEdge;
+        if (id && get().edges[id]) set({ selection: { type: "edge", id }, freshEdge: id });
+      },
       editing: null,
       setEditing: (editing) => set({ editing }),
 
       setShowAllKinds: (showAllKinds) => set({ showAllKinds }),
-      startLinking: (linking) => set({ linking }),
+      // Linking hides the editor, so the "tap the target" bar (and the sheet) stay visible.
+      startLinking: (linking) => set(linking ? { linking, selection: null } : { linking }),
       setProject: (project) => set({ project }),
       setView: (view) => set({ view }),
-      select: (selection) => set({ selection, fresh: null }),
+      select: (selection) => set((s) => ({ selection, fresh: null, freshEdge: selection?.id === s.freshEdge ? s.freshEdge : null })),
 
       addNode: (kind, x, y, title, body) => {
         const [node, counters] = makeNode(get().counters, kind, x, y, title, body);
@@ -240,7 +271,7 @@ export const usePlan = create<PlanState>()(
         if (rel !== "contradicts" && wouldCycle(from, to, edges)) return false;
         if (Object.values(edges).some((e) => (e.from === from && e.to === to) || (e.from === to && e.to === from))) return false;
         const id = uid();
-        set((s) => ({ edges: { ...s.edges, [id]: { id, from, to, rel } } }));
+        set((s) => ({ edges: { ...s.edges, [id]: { id, from, to, rel } }, lastEdge: id }));
         return true;
       },
 
@@ -406,7 +437,50 @@ export const usePlan = create<PlanState>()(
         const n = get().nodes[id];
         if (!n) return;
         const k = Math.max(get().view.k, 0.9);
-        set({ view: { k, x: w / 2 - (n.x + 116) * k, y: h / 2 - (n.y + 50) * k }, ...(selectIt ? { selection: { type: "node" as const, id } } : {}) });
+        const a = visibleArea(w, h, selectIt);
+        set({
+          view: { k, x: (a.left + a.right) / 2 - (n.x + 116) * k, y: (a.top + a.bottom) / 2 - (n.y + 50) * k },
+          ...(selectIt ? { selection: { type: "node" as const, id } } : {}),
+        });
+      },
+
+      reveal: (id) => {
+        const n = get().nodes[id];
+        if (!n) return;
+        const { x, y, k } = get().view;
+        const a = visibleArea(window.innerWidth, window.innerHeight, get().selection !== null);
+        const sx = n.x * k + x;
+        const sy = n.y * k + y;
+        const w = 232 * k;
+        const h = estimateHeight(n) * k;
+        let dx = 0;
+        let dy = 0;
+        if (sx < a.left) dx = a.left - sx;
+        else if (sx + w > a.right) dx = a.right - (sx + w);
+        if (sy < a.top) dy = a.top - sy;
+        else if (sy + h > a.bottom) dy = a.bottom - (sy + h);
+        // Too big to fit, or panning would be large anyway: centre it.
+        if (w > a.right - a.left || h > a.bottom - a.top) return get().focus(id, window.innerWidth, window.innerHeight, false);
+        if (dx || dy) set({ view: { k, x: x + dx, y: y + dy } });
+      },
+
+      addCardNear: (kind, title) => {
+        const s = get();
+        const sel = s.selection?.type === "node" ? s.nodes[s.selection.id] : undefined;
+        let x: number;
+        let y: number;
+        if (sel) {
+          x = sel.x + 300;
+          y = sel.y;
+        } else {
+          const a = visibleArea(window.innerWidth, window.innerHeight, false);
+          x = ((a.left + a.right) / 2 - s.view.x) / s.view.k - 116;
+          y = ((a.top + a.bottom) / 2 - s.view.y) / s.view.k - 50;
+        }
+        const spot = findFreeSpot(s.nodes, x, y);
+        const id = get().addNode(kind, spot.x, spot.y, title);
+        get().reveal(id);
+        return id;
       },
 
       loadSheet: (sh) =>
@@ -422,7 +496,7 @@ export const usePlan = create<PlanState>()(
           linking: null,
         }),
 
-      fit: (w, h, padLeft = 0) => {
+      fit: (w, h, padLeft = 0, padRight = 0) => {
         const list = Object.values(get().nodes);
         if (!list.length) return;
         const minX = Math.min(...list.map((n) => n.x));
@@ -431,7 +505,7 @@ export const usePlan = create<PlanState>()(
         const maxY = Math.max(...list.map((n) => n.y + 140));
         const top = 120;
         const bottom = 60;
-        const aw = Math.max(200, w - padLeft - 40);
+        const aw = Math.max(200, w - padLeft - padRight - 40);
         const ah = Math.max(200, h - top - bottom);
         const k = Math.min(1, Math.max(0.3, Math.min(aw / (maxX - minX), ah / (maxY - minY))));
         set({

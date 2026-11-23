@@ -317,3 +317,8 @@ export function keepSharedCopy() {
   usePlan.setState({ viewing: null, sheetId: newId(), project: s.project });
   touchCurrent();
 }
+
+/** A sheet of yours with this exact name, if any (most recent first). */
+export function findSheetByName(name: string): SheetMeta | undefined {
+  return [...index].sort((a, b) => b.updatedAt - a.updatedAt).find((m) => m.name === name);
+}

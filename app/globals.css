@@ -334,3 +334,24 @@ body {
   border-radius: 0 0 4px 0;
 }
 @media (pointer: coarse) { .bp-frame-grip { width: 26px; height: 26px; right: -11px; bottom: -11px; } }
+
+/* Touch: comfortable targets (44px guideline) */
+@media (pointer: coarse) {
+  .bp-tool, .bp-btn { min-height: 40px; min-width: 40px; }
+  .bp-tabbtn { min-height: 44px; }
+}
+
+/* Phones: the toolbar scrolls sideways; fade its edge so that's visible. */
+@media (max-width: 767px) {
+  .bp-toolbar {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+    padding-right: 36px;
+  }
+}
+.bp-spotlight {
+  box-shadow: 0 0 0 2px var(--spark), 0 0 28px 6px rgba(255, 209, 102, 0.45);
+  animation: bp-pulse 1.6s ease-in-out infinite;
+}
+@keyframes bp-pulse { 50% { box-shadow: 0 0 0 2px var(--spark), 0 0 12px 2px rgba(255, 209, 102, 0.25); } }
+@media (prefers-reduced-motion: reduce) { .bp-spotlight { animation: none; } }

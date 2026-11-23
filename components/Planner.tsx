@@ -20,13 +20,13 @@ import Inspector from "./Inspector";
 import { Symbol } from "./NodeCard";
 import { Dump, EdgePanel, FramePanel, Generator, Share, viewCenter } from "./Panels";
 import { Help } from "./Help";
-import { Start, Tour, loadStarter } from "./Start";
+import { Start, Tour, openForTour } from "./Start";
 import type { Starter } from "@/lib/starters";
 import Sidebar from "./Sidebar";
 
 const fitToScreen = () => {
   const s = usePlan.getState();
-  if (window.innerWidth >= 900) return s.fit(window.innerWidth, window.innerHeight, 300);
+  if (window.innerWidth >= 900) return s.fit(window.innerWidth, window.innerHeight, 320, s.selection ? 330 : 20);
   // Phones: a whole plan is unreadable at that scale, so open on the next move instead.
   const top = nextMoves(s.nodes, s.edges)[0];
   if (top) s.focus(top.node.id, window.innerWidth, window.innerHeight);
@@ -36,6 +36,7 @@ const fitToScreen = () => {
 
 function Pipeline() {
   const nodes = usePlan((s) => s.nodes);
+  const planning = Object.values(nodes).some((n) => n.kind === "goal" || n.kind === "milestone" || n.kind === "step");
   const counts = useMemo(() => {
     const c = { spark: 0, goal: 0, milestone: 0, step: 0, doing: 0, done: 0 };
     for (const n of Object.values(nodes)) {
@@ -55,6 +56,7 @@ function Pipeline() {
     ["Doing", counts.doing],
     ["Done", counts.done],
   ];
+  if (!planning) return null; // a reasoning sheet doesn't need the planning pipeline
   return (
     <div className="bp-mono hidden items-center gap-1 text-[10px] uppercase tracking-[0.16em] lg:flex" aria-label="Pipeline">
       {stages.map(([label, n], i) => (
@@ -106,8 +108,64 @@ function TitleBlock({ onSheets }: { onSheets: () => void }) {
 
 type Overlay = "gen" | "dump" | "share" | "help" | "start" | "sheets" | "find" | null;
 
+/** "⋯ More": less-used actions. Rendered fixed so the scrolling toolbar can't clip it. */
+function MoreMenu({ items }: { items: { label: string; hint: string; run: () => void }[] }) {
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!rect) return;
+    const close = (e: Event) => {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      if (e.target instanceof Node && (btn.current?.contains(e.target) || document.getElementById("bp-more")?.contains(e.target))) return;
+      setRect(null);
+    };
+    window.addEventListener("pointerdown", close, true);
+    window.addEventListener("keydown", close);
+    return () => {
+      window.removeEventListener("pointerdown", close, true);
+      window.removeEventListener("keydown", close);
+    };
+  }, [rect]);
+  return (
+    <>
+      <button
+        ref={btn}
+        onClick={() => setRect(rect ? null : btn.current!.getBoundingClientRect())}
+        aria-haspopup="menu"
+        aria-expanded={!!rect}
+        className="bp-tool"
+        title="More: dump, generate, frame, tidy, fit, export, import"
+      >
+        ⋯ More
+      </button>
+      {rect && (
+        <div
+          id="bp-more"
+          role="menu"
+          className="bp-panel pointer-events-auto fixed z-50 w-52 py-1"
+          style={{ top: rect.bottom + 6, left: Math.max(8, Math.min(rect.left, window.innerWidth - 216)) }}
+        >
+          {items.map((it) => (
+            <button
+              key={it.label}
+              role="menuitem"
+              onClick={() => {
+                setRect(null);
+                it.run();
+              }}
+              className="bp-tool flex w-full justify-between px-3 py-2 text-left"
+            >
+              {it.label}
+              {it.hint && <span className="bp-mono text-[10px] text-[var(--ink-faint)]">{it.hint}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 function Toolbar({ open }: { open: (o: Overlay) => void }) {
-  const addNode = usePlan((s) => s.addNode);
   const showAll = usePlan((s) => s.showAllKinds);
   const setShowAll = usePlan((s) => s.setShowAllKinds);
   const { canUndo, canRedo } = useHistory();
@@ -137,8 +195,29 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
     );
   }
 
+  const tidyNow = () => {
+    const st = usePlan.getState();
+    if (Object.keys(st.nodes).length < 2) return;
+    checkpoint();
+    // Remember who was in each frame, lay out, then shrink-wrap the frames again.
+    const members = Object.fromEntries(Object.values(st.frames).map((f) => [f.id, membersOf(f, st.nodes)]));
+    st.setPositions(tidy(st.nodes, st.edges, Object.values(members)));
+    st.refitFrames(members);
+    checkpoint();
+    fitToScreen();
+    toastUndo("Tidied the sheet");
+  };
+
+  const frameNow = () => {
+    const st = usePlan.getState();
+    const ids = st.gathered.length ? st.gathered : st.selection?.type === "node" ? [st.selection.id] : [];
+    const c = viewCenter();
+    st.addFrame(ids, c.x - 180, c.y - 120);
+    st.clearGathered();
+  };
+
   return (
-    <div className="bp-panel bp-noscrollbar pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto whitespace-nowrap p-1.5 max-md:flex-nowrap md:flex-wrap [&>*]:shrink-0">
+    <div className="bp-panel bp-noscrollbar bp-toolbar pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto whitespace-nowrap p-1.5 max-md:flex-nowrap md:flex-wrap [&>*]:shrink-0">
       <button onClick={undo} disabled={!canUndo} className="bp-tool px-2 disabled:opacity-30" title="Undo (Ctrl/⌘+Z)" aria-label="Undo">↶</button>
       <button onClick={redo} disabled={!canRedo} className="bp-tool px-2 disabled:opacity-30" title="Redo (Ctrl/⌘+Shift+Z)" aria-label="Redo">↷</button>
       <span className="mx-1 h-5 w-px bg-[var(--line)]" />
@@ -148,49 +227,31 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
           {group.map((k: Kind) => (
             <button
               key={k}
-              onClick={() => {
-                const c = viewCenter();
-                addNode(k, c.x, c.y);
-              }}
+              onClick={() => usePlan.getState().addCardNear(k)}
               title={`Add ${KIND_META[k].label} — ${KIND_META[k].hint}`}
               className={`bp-${k} bp-tool px-2`}
               aria-label={`Add ${KIND_META[k].label}`}
             >
               <span className="bp-accent"><Symbol kind={k} /></span>
+              {!showAll && <span className="hidden text-[12px] xl:inline">{KIND_META[k].label}</span>}
             </button>
           ))}
         </span>
       ))}
       <button
         onClick={() => setShowAll(!showAll)}
-        className="bp-tool bp-mono px-2 text-[10px] uppercase tracking-[0.14em]"
+        className="bp-tool bp-mono px-2 text-[10px] uppercase tracking-[0.1em]"
         title={showAll ? "Show only the core cards" : "Show all 12 card kinds: spark, assumption, goal, milestone, risk, snippet…"}
       >
         {showAll ? "− fewer" : "+ more"}
       </button>
       <span className="mx-1 h-5 w-px bg-[var(--line)]" />
-      <button
-        onClick={() => {
-          const st = usePlan.getState();
-          const ids = st.gathered.length ? st.gathered : st.selection?.type === "node" ? [st.selection.id] : [];
-          const c = viewCenter();
-          st.addFrame(ids, c.x - 180, c.y - 120);
-          st.clearGathered();
-        }}
-        className="bp-tool"
-        title="Frame: group the gathered (or selected) cards under a label"
-      >
-        Frame
-      </button>
-      <button onClick={() => open("find")} className="bp-btn" title="Find a card (Ctrl/⌘+K or /)" aria-label="Find a card">
-        Find
-      </button>
+      <button onClick={() => open("find")} className="bp-btn" title="Find a card (Ctrl/⌘+K or /)" aria-label="Find a card">Find</button>
       <button onClick={() => open("start")} className="bp-btn" title="Examples, a guided tour, and templates">Start</button>
-      <button onClick={() => open("dump")} className="bp-btn" title="Empty your head: one thought per line (D)">Dump</button>
-      <button onClick={() => open("gen")} className="bp-btn" title="Idea generator (G)">Generate</button>
       <button onClick={() => open("share")} className="bp-btn bp-btn-primary" title="Share a read-only link, or export Markdown for an AI consistency check">
         Share
       </button>
+      <button onClick={() => open("sheets")} className="bp-btn" title="Your sheets: new, open, rename, duplicate, delete">Sheets</button>
       <button
         onClick={() => open("help")}
         className="bp-btn bp-mono h-[30px] w-[30px] rounded-full p-0 text-[13px]"
@@ -199,31 +260,17 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
       >
         ?
       </button>
-      <span className="mx-1 h-5 w-px bg-[var(--line)]" />
-      <button
-        onClick={() => {
-          const st = usePlan.getState();
-          if (Object.keys(st.nodes).length < 2) return;
-          checkpoint();
-          // Remember who was in each frame, lay out, then shrink-wrap the frames again.
-          const members = Object.fromEntries(Object.values(st.frames).map((f) => [f.id, membersOf(f, st.nodes)]));
-          st.setPositions(tidy(st.nodes, st.edges, Object.values(members)));
-          st.refitFrames(members);
-          checkpoint();
-          fitToScreen();
-          toastUndo("Tidied the sheet");
-        }}
-        className="bp-tool"
-        title="Lay the sheet out left to right by how cards connect (undoable)"
-      >
-        Tidy
-      </button>
-      <button onClick={fitToScreen} className="bp-tool" title="Fit the whole plan on screen">Fit</button>
-      <button onClick={exportPlan} className="bp-tool" title="Download plan as JSON">Export</button>
-      <button onClick={() => file.current?.click()} className="bp-tool" title="Load a .blueprint.json">Import</button>
-      <button onClick={() => open("sheets")} className="bp-tool" title="Your sheets: new, open, rename, duplicate, delete">
-        Sheets
-      </button>
+      <MoreMenu
+        items={[
+          { label: "Dump thoughts", hint: "D", run: () => open("dump") },
+          { label: "Generate ideas", hint: "G", run: () => open("gen") },
+          { label: "Frame cards", hint: "F", run: frameNow },
+          { label: "Tidy layout", hint: "", run: tidyNow },
+          { label: "Fit to screen", hint: "", run: fitToScreen },
+          { label: "Export file", hint: "", run: exportPlan },
+          { label: "Import file", hint: "", run: () => file.current?.click() },
+        ]}
+      />
       <input
         ref={file}
         type="file"
@@ -306,19 +353,7 @@ const centerWorld = (): [number, number] => {
   return [(window.innerWidth / 2 - v.x) / v.k, (window.innerHeight / 2 - v.y) / v.k];
 };
 
-/** Pan just enough to bring a card on screen (no jump if it's already visible). */
-function reveal(id: string) {
-  const s = usePlan.getState();
-  const n = s.nodes[id];
-  if (!n) return;
-  const { x, y, k } = s.view;
-  const sx = n.x * k + x;
-  const sy = n.y * k + y;
-  const m = 80;
-  if (sx < m + 300 || sy < m + 60 || sx + 232 * k > window.innerWidth - m - 300 || sy + 120 * k > window.innerHeight - m) {
-    s.focus(id, window.innerWidth, window.innerHeight, true);
-  }
-}
+const reveal = (id: string) => usePlan.getState().reveal(id);
 
 /** Tells screen readers what's selected and what keyboard mode is on. */
 function Announcer() {
@@ -361,7 +396,7 @@ function Toast() {
       const d = (e as CustomEvent<{ text: string; undo: boolean }>).detail;
       setMsg((m) => ({ ...d, n: (m?.n ?? 0) + 1 }));
       clearTimeout(timer);
-      timer = setTimeout(() => setMsg(null), 6000);
+      timer = setTimeout(() => setMsg(null), 5000);
     };
     window.addEventListener("blueprint-toast", on);
     return () => {
@@ -427,7 +462,11 @@ export default function Planner() {
       window.removeEventListener("hashchange", onHash);
     };
   }, []);
-  const open = (kind: Overlay) => setOverlay((o) => ({ kind: o.kind === kind ? null : kind, n: o.n + 1 }));
+  const open = (kind: Overlay) => {
+    // Phones have room for one panel at a time: opening one closes the card editor.
+    if (window.innerWidth < 768) usePlan.getState().select(null);
+    setOverlay((o) => ({ kind: o.kind === kind ? null : kind, n: o.n + 1 }));
+  };
   const close = () => setOverlay((o) => ({ ...o, kind: null }));
   const selection = usePlan((s) => s.selection);
 
@@ -524,7 +563,8 @@ export default function Planner() {
       if (e.key === "Enter" && s.selection) {
         e.preventDefault();
         if (s.linking && selNode && s.linking !== selNode.id) {
-          if (!s.link(s.linking, selNode.id)) toast("Those are already linked, or the link would loop back.");
+          if (s.link(s.linking, selNode.id)) s.selectFreshEdge();
+          else toast("Those are already linked, or the link would loop back.");
           s.startLinking(null);
         } else if (s.selection.type !== "edge") s.setEditing(s.selection.id);
         return;
@@ -606,7 +646,7 @@ export default function Planner() {
           <Toolbar open={open} />
           <div className="ml-auto"><Pipeline /></div>
         </header>
-        <div className="flex justify-center empty:hidden"><ViewerBar /></div>
+        <div className="flex flex-col items-center gap-2 empty:hidden"><ViewerBar /><Toast /></div>
         <div className="flex min-h-0 flex-1 items-start gap-3">
           <Sidebar />
           {/* On phones, panels become full-width sheets instead of squeezing between columns. */}
@@ -624,7 +664,7 @@ export default function Planner() {
                 key={overlay.n}
                 onClose={close}
                 onTour={(st: Starter) => {
-                  loadStarter(st);
+                  openForTour(st);
                   close();
                   setTour(st);
                 }}
@@ -645,11 +685,9 @@ export default function Planner() {
             <button onClick={() => setFull(false)} className="bp-tool">OK</button>
           </div>
         )}
-        <div className="flex flex-col items-center gap-2"><LinkBar /><GatherBar /><Toast /></div>
+        <div className="flex flex-col items-center gap-2"><LinkBar /><GatherBar /></div>
         <footer className="flex items-end justify-between gap-3">
-          <p className="bp-mono hidden text-[10px] uppercase tracking-[0.18em] text-[var(--ink-faint)] sm:block">
-            Drag paper to pan · ctrl+scroll to zoom · double-click for a thought · drag a right port to link · shift-click to gather · drop images or links on the paper · arrows move · ⌘/Ctrl+Z undo · ⌘/Ctrl+K find · D dump · G generate · ? help
-          </p>
+          <span />
           <TitleBlock onSheets={() => setOverlay((o) => ({ kind: "sheets", n: o.n + 1 }))} />
         </footer>
       </div>

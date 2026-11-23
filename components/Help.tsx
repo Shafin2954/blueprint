@@ -5,7 +5,6 @@ import { HELP, searchHelp, type DemoRow, type HelpEntry, type HelpGroup } from "
 import { usePlan } from "@/lib/store";
 import { KIND_META, type Rel } from "@/lib/types";
 import { Symbol } from "./NodeCard";
-import { viewCenter } from "./Panels";
 
 const GROUPS: (HelpGroup | "All")[] = ["All", "Cards", "Links", "Checks", "Tools"];
 
@@ -48,7 +47,6 @@ function Demo({ rows }: { rows: DemoRow[] }) {
 }
 
 function Entry({ e, open, onToggle }: { e: HelpEntry; open: boolean; onToggle: () => void }) {
-  const addNode = usePlan((s) => s.addNode);
   return (
     <li className="rounded-sm border border-[var(--line)]">
       <button onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left hover:bg-[var(--hover)]">
@@ -73,10 +71,7 @@ function Entry({ e, open, onToggle }: { e: HelpEntry; open: boolean; onToggle: (
           {e.demo && <Demo rows={e.demo} />}
           {e.kind && (
             <button
-              onClick={() => {
-                const c = viewCenter();
-                addNode(e.kind!, c.x, c.y);
-              }}
+              onClick={() => usePlan.getState().addCardNear(e.kind!)}
               className="bp-btn text-[11px]"
             >
               Add a blank {KIND_META[e.kind].label.toLowerCase()}

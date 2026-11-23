@@ -309,7 +309,10 @@ function PictureTab({ flagCount }: { flagCount: number }) {
 
 export default function Sidebar() {
   const flags = useHoles();
-  const [tab, setTab] = useState<Tab>("next");
+  // Planning sheets open on Next; reasoning sheets on Plot holes, the most useful view there.
+  const [tab, setTab] = useState<Tab>(() =>
+    Object.values(usePlan.getState().nodes).some((n) => n.kind === "step") ? "next" : "holes",
+  );
   const [open, setOpen] = useState(() => window.innerWidth >= 900);
   // The tour (and anything else) can ask for a tab: dispatch "blueprint-tab" with "next" | "holes" | "picture".
   useEffect(() => {
@@ -337,7 +340,8 @@ export default function Sidebar() {
               setTab(t);
               setOpen(true);
             }}
-            className={`bp-mono flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap px-1.5 py-2.5 text-[10px] uppercase tracking-[0.08em] ${
+            aria-label={`${label} tab`}
+            className={`bp-tabbtn bp-mono flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap px-1.5 py-2.5 text-[10px] uppercase tracking-[0.08em] ${
               open && tab === t ? "text-[var(--ink)] shadow-[inset_0_-2px_0_var(--spark)]" : "text-[var(--ink-faint)] hover:text-[var(--ink-dim)]"
             }`}
           >
@@ -345,7 +349,7 @@ export default function Sidebar() {
             {n ? <span className={`rounded-full px-1.5 text-[9px] ${holes ? "bg-[var(--warn)] text-[var(--paper-deep)]" : "bg-[var(--line)] text-[var(--ink)]"}`}>{n}</span> : null}
           </button>
         ))}
-        <button onClick={() => setOpen(!open)} className="bp-mono px-3 text-[12px] text-[var(--ink-faint)]" title={open ? "Collapse" : "Expand"}>
+        <button onClick={() => setOpen(!open)} className="bp-tabbtn bp-mono px-3 text-[12px] text-[var(--ink-faint)]" title={open ? "Collapse" : "Expand"} aria-label={open ? "Collapse panel" : "Expand panel"}>
           {open ? "−" : "+"}
         </button>
       </div>

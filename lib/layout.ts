@@ -152,3 +152,30 @@ export function tidy(nodes: Nodes, edges: Edges, frameMembers: string[][] = []):
   for (const id of ids) pos[id] = { x: pos[id].x + snap(ox), y: pos[id].y + snap(oy) };
   return pos;
 }
+
+/**
+ * The nearest clear spot to (x, y) for a new card: tries the spot itself, then a widening
+ * ring of grid positions, preferring right and down so new cards read in order.
+ */
+export function findFreeSpot(nodes: Nodes, x: number, y: number): { x: number; y: number } {
+  const list = Object.values(nodes);
+  const W = NODE_W + 24;
+  const H = 132;
+  const free = (px: number, py: number) =>
+    list.every((n) => px + W <= n.x || n.x + NODE_W + 24 <= px || py + H <= n.y || n.y + estimateHeight(n) + 24 <= py);
+  const sx = snap(x);
+  const sy = snap(y);
+  if (free(sx, sy)) return { x: sx, y: sy };
+  for (let r = 1; r <= 12; r++) {
+    const ring: [number, number][] = [];
+    for (let i = -r; i <= r; i++) ring.push([r, i], [i, r], [-r, i], [i, -r]);
+    // right and below first, then the rest; nearest first within each
+    ring.sort((a, b) => Number(a[0] < 0 || a[1] < 0) - Number(b[0] < 0 || b[1] < 0) || Math.hypot(...a) - Math.hypot(...b));
+    for (const [cx, cy] of ring) {
+      const px = snap(sx + cx * W);
+      const py = snap(sy + cy * H);
+      if (free(px, py)) return { x: px, y: py };
+    }
+  }
+  return { x: sx, y: sy };
+}

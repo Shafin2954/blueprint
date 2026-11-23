@@ -165,8 +165,8 @@ export default function Board() {
       const from = usePlan.getState().linking!;
       const to = card.dataset.nodeId!;
       usePlan.getState().startLinking(null);
-      if (to !== from && !link(from, to)) flash("Those are already linked, or the link would loop back on itself.");
-      select({ type: "node", id: to });
+      if (to !== from && link(from, to)) usePlan.getState().selectFreshEdge();
+      else if (to !== from) flash("Those are already linked, or the link would loop back on itself.");
       return;
     } else if (card && e.shiftKey) {
       gather(card.dataset.nodeId!);
@@ -238,6 +238,8 @@ export default function Board() {
     }
     gesture.current = null;
     if (!g) return;
+    // A tap on a card (no drag): make sure it isn't hidden behind the panel that just opened.
+    if (g.mode === "drag" && !g.moved) usePlan.getState().reveal(g.id);
     if (g.mode === "pan" && !g.moved) {
       select(null);
       // Double-tap on touch screens, where dblclick isn't reliable.
@@ -259,7 +261,8 @@ export default function Board() {
         .find(Boolean);
       const to = hit?.dataset.nodeId;
       if (to && to !== g.from) {
-        if (!link(g.from, to)) flash("Those are already linked, or the link would loop back on itself.");
+        if (link(g.from, to)) usePlan.getState().selectFreshEdge();
+        else flash("Those are already linked, or the link would loop back on itself.");
       } else if (!to) {
         // Dropped on empty paper: sketch whatever naturally comes next, right there.
         const kind = NEXT_KIND[usePlan.getState().nodes[g.from]?.kind ?? "step"] ?? "step";
@@ -433,10 +436,9 @@ export default function Board() {
       </div>
 
       {list.length === 0 && (
-        <div className="pointer-events-none absolute inset-0 grid place-items-center">
-          <p className="bp-mono max-w-sm text-center text-xs uppercase leading-relaxed tracking-[0.2em] text-[var(--ink-dim)]">
-            Blank sheet. Press Start for examples, a tour and templates,
-            <br /> D to dump what&apos;s on your mind, or double-click to drop a thought.
+        <div className="pointer-events-none absolute inset-0 grid place-items-center px-6">
+          <p className="bp-mono max-w-sm text-center text-xs uppercase leading-relaxed tracking-[0.16em] text-[var(--ink-dim)]">
+            Blank sheet. Add a card from the toolbar, or press Start for examples and templates.
           </p>
         </div>
       )}
