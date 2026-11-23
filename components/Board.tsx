@@ -5,15 +5,20 @@ import { usePlan } from "@/lib/store";
 import { chain, isDone } from "@/lib/graph";
 import { useHoles } from "@/lib/useHoles";
 import type { Severity } from "@/lib/holes";
-import { ANCHOR_Y, NODE_W, type Kind, type PlanNode } from "@/lib/types";
-import { imageToDataUrl, isUrl } from "@/lib/image";
+import { ANCHOR_Y, NODE_W, STRENGTH, type PlanNode } from "@/lib/types";
+import { saveImage, isUrl } from "@/lib/image";
 import NodeCard from "./NodeCard";
+import { NEXT_KIND } from "@/lib/keyboard";
+import { MIN_FRAME, membersOf } from "@/lib/frames";
+import type { Frame } from "@/lib/types";
 
 type Gesture =
   | { mode: "pan"; sx: number; sy: number; vx: number; vy: number; moved: boolean }
   | { mode: "drag"; id: string; ox: number; oy: number; moved: boolean }
   | { mode: "connect"; from: string; x: number; y: number }
   | { mode: "pinch"; d0: number; k0: number; vx: number; vy: number; mx: number; my: number }
+  | { mode: "frame"; id: string; ox: number; oy: number; fx: number; fy: number; members: Record<string, { x: number; y: number }> }
+  | { mode: "resize"; id: string; sx: number; sy: number; w: number; h: number }
   | null;
 
 function edgePath(ax: number, ay: number, bx: number, by: number) {
@@ -29,16 +34,7 @@ function edgeMid(ax: number, ay: number, bx: number, by: number) {
 
 const SEV_RANK: Record<Severity, number> = { hole: 0, gap: 1, note: 2 };
 
-/** What you probably want next when you drag a link out of a card into empty space. */
-const NEXT_KIND: Partial<Record<Kind, Kind>> = {
-  thought: "thought",
-  spark: "thought",
-  evidence: "claim",
-  question: "claim",
-  claim: "conclusion",
-  assumption: "claim",
-  conclusion: "conclusion",
-};
+
 
 export default function Board() {
   const nodes = usePlan((s) => s.nodes);
@@ -46,6 +42,7 @@ export default function Board() {
   const view = usePlan((s) => s.view);
   const selection = usePlan((s) => s.selection);
   const gathered = usePlan((s) => s.gathered);
+  const frames = usePlan((s) => s.frames);
   const { setView, select, moveNode, connect, addNode, link, gather, updateNode } = usePlan.getState();
   void connect;
 
@@ -129,10 +126,36 @@ export default function Board() {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
     const port = target.closest<HTMLElement>("[data-port]");
+    const frameHandle = target.closest<HTMLElement>("[data-frame-handle]");
+    const frameResize = target.closest<HTMLElement>("[data-frame-resize]");
     const card = target.closest<HTMLElement>("[data-node-id]");
+    if (usePlan.getState().viewing) {
+      // Read-only (shared link): select to read, pan the paper, nothing else.
+      if (card) select({ type: "node", id: card.dataset.nodeId! });
+      else if (frameHandle) select({ type: "frame", id: frameHandle.dataset.frameHandle! });
+      else if (!target.closest("[data-edge]")) {
+        const v = usePlan.getState().view;
+        gesture.current = { mode: "pan", sx: e.clientX, sy: e.clientY, vx: v.x, vy: v.y, moved: false };
+        ref.current!.setPointerCapture(e.pointerId);
+      }
+      return;
+    }
     if (target.closest("[data-nodrag]")) return;
 
-    if (port) {
+    if (frameResize) {
+      const f = usePlan.getState().frames[frameResize.dataset.frameResize!];
+      const p = toWorld(e.clientX, e.clientY);
+      gesture.current = { mode: "resize", id: f.id, sx: p.x, sy: p.y, w: f.w, h: f.h };
+      select({ type: "frame", id: f.id });
+    } else if (frameHandle) {
+      const st = usePlan.getState();
+      const f = st.frames[frameHandle.dataset.frameHandle!];
+      const p = toWorld(e.clientX, e.clientY);
+      // Cards inside the frame at the start of the drag travel with it.
+      const members = Object.fromEntries(membersOf(f, st.nodes).map((id) => [id, { x: st.nodes[id].x, y: st.nodes[id].y }]));
+      gesture.current = { mode: "frame", id: f.id, ox: p.x, oy: p.y, fx: f.x, fy: f.y, members };
+      select({ type: "frame", id: f.id });
+    } else if (port) {
       const id = port.dataset.port!;
       const p = toWorld(e.clientX, e.clientY);
       gesture.current = { mode: "connect", from: id, ...p };
@@ -180,6 +203,18 @@ export default function Board() {
       const dy = e.clientY - g.sy;
       if (Math.abs(dx) + Math.abs(dy) > 3) g.moved = true;
       setView({ ...usePlan.getState().view, x: g.vx + dx, y: g.vy + dy });
+    } else if (g.mode === "frame") {
+      const p = toWorld(e.clientX, e.clientY);
+      const dx = Math.round((p.x - g.ox) / 12) * 12;
+      const dy = Math.round((p.y - g.oy) / 12) * 12;
+      const moved = Object.fromEntries(Object.entries(g.members).map(([id, m]) => [id, { x: m.x + dx, y: m.y + dy }]));
+      usePlan.getState().placeFrame(g.id, g.fx + dx, g.fy + dy, moved);
+    } else if (g.mode === "resize") {
+      const p = toWorld(e.clientX, e.clientY);
+      usePlan.getState().updateFrame(g.id, {
+        w: Math.max(MIN_FRAME.w, Math.round((g.w + p.x - g.sx) / 12) * 12),
+        h: Math.max(MIN_FRAME.h, Math.round((g.h + p.y - g.sy) / 12) * 12),
+      });
     } else if (g.mode === "drag") {
       const p = toWorld(e.clientX, e.clientY);
       g.moved = true;
@@ -206,7 +241,7 @@ export default function Board() {
     if (g.mode === "pan" && !g.moved) {
       select(null);
       // Double-tap on touch screens, where dblclick isn't reliable.
-      if (e.pointerType === "touch") {
+      if (e.pointerType === "touch" && !usePlan.getState().viewing) {
         const now = e.timeStamp;
         const t = lastTap.current;
         if (t && now - t.t < 350 && Math.hypot(t.x - e.clientX, t.y - e.clientY) < 30) {
@@ -242,13 +277,14 @@ export default function Board() {
   // Drop a picture or a link onto the paper → evidence card. Onto a card → attach it there.
   const onDrop = async (e: React.DragEvent) => {
     e.preventDefault();
+    if (usePlan.getState().viewing) return;
     const p = toWorld(e.clientX, e.clientY);
     const onto = (e.target as HTMLElement).closest<HTMLElement>("[data-node-id]")?.dataset.nodeId;
     const file = [...e.dataTransfer.files].find((f) => f.type.startsWith("image/"));
     const text = (e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain")).split("\n")[0]?.trim();
     try {
       if (file) {
-        const image = await imageToDataUrl(file);
+        const image = await saveImage(file);
         if (onto) updateNode(onto, { image });
         else {
           const id = addNode("evidence", p.x - NODE_W / 2, p.y - 20, file.name.replace(/\.[^.]+$/, "") || "Picture");
@@ -269,12 +305,18 @@ export default function Board() {
   };
 
   const onDoubleClick = (e: React.MouseEvent) => {
+    if (usePlan.getState().viewing) return;
     // The board captures the pointer during a press (for dragging), so the browser
     // reports the double-click on the board itself. Ask what's really underneath.
     const t = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null) ?? (e.target as HTMLElement);
     const card = t.closest<HTMLElement>("[data-node-id]");
     if (card) {
       if (t.closest("[data-title]")) usePlan.getState().setEditing(card.dataset.nodeId!);
+      return;
+    }
+    const fh = t.closest<HTMLElement>("[data-frame-handle]");
+    if (fh) {
+      usePlan.getState().setEditing(fh.dataset.frameHandle!);
       return;
     }
     if (t.closest("[data-edge]") || t.closest("[data-nodrag]")) return;
@@ -310,6 +352,9 @@ export default function Board() {
         className="absolute left-0 top-0 origin-top-left"
         style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})` }}
       >
+        {Object.values(frames).map((f) => (
+          <FrameBox key={f.id} f={f} selected={selection?.type === "frame" && selection.id === f.id} />
+        ))}
         <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
           <defs>
             {["ink", "lit", "sel", "sup"].map((m) => (
@@ -348,7 +393,7 @@ export default function Board() {
                   fill="none"
                   className={`bp-edge-${tone}`}
                   stroke="currentColor"
-                  strokeWidth={sel || on ? 2 : 1.3}
+                  strokeWidth={(sel || on ? 2 : 1.3) * (rel === "feeds" ? 1 : STRENGTH[e.strength ?? "normal"].mult)}
                   strokeDasharray={rel === "contradicts" ? "2 5" : pending ? "7 5" : undefined}
                   markerEnd={rel === "contradicts" ? undefined : `url(#arrow-${tone})`}
                 />
@@ -401,6 +446,48 @@ export default function Board() {
           {refused}
         </div>
       )}
+    </div>
+  );
+}
+
+/** A labeled group drawn behind the cards. Only its label tab and corner grip take the pointer. */
+function FrameBox({ f, selected }: { f: Frame; selected: boolean }) {
+  const editing = usePlan((s) => s.editing === f.id);
+  return (
+    <div
+      className={`bp-frame pointer-events-none absolute ${selected ? "bp-frame-selected" : ""}`}
+      style={{ left: f.x, top: f.y, width: f.w, height: f.h }}
+      role="group"
+      aria-label={`Frame: ${f.label}`}
+    >
+      {editing ? (
+        <input
+          data-nodrag
+          autoFocus
+          defaultValue={f.label}
+          aria-label="Frame label"
+          onFocus={(e) => e.target.select()}
+          onBlur={(e) => {
+            const v = e.target.value.trim();
+            if (v && v !== f.label) usePlan.getState().updateFrame(f.id, { label: v });
+            usePlan.getState().setEditing(null);
+          }}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            if (e.key === "Escape") {
+              (e.target as HTMLInputElement).value = f.label;
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          className="bp-frame-tab bp-input pointer-events-auto w-56 py-1 text-[13px]"
+        />
+      ) : (
+        <div data-frame-handle={f.id} className="bp-frame-tab pointer-events-auto cursor-grab active:cursor-grabbing" title="Drag to move the frame and its cards · double-click to rename">
+          {f.label}
+        </div>
+      )}
+      <div data-frame-resize={f.id} className="bp-frame-grip pointer-events-auto" title="Drag to resize" aria-hidden />
     </div>
   );
 }

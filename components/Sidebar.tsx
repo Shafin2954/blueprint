@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { usePlan } from "@/lib/store";
+import { usePlan, useReadOnly } from "@/lib/store";
 import { nextMoves, progress } from "@/lib/graph";
 import { islands, pairKey, suggestLinks } from "@/lib/insight";
 import { useHoles } from "@/lib/useHoles";
@@ -100,6 +100,7 @@ function NextTab() {
 const SEV: Record<Flag["severity"], string> = { hole: "Hole", gap: "Gap", note: "Note" };
 
 function HolesTab({ flags }: { flags: Flag[] }) {
+  const readOnly = useReadOnly();
   const nodes = usePlan((s) => s.nodes);
   const dismiss = usePlan((s) => s.dismiss);
   return (
@@ -128,19 +129,19 @@ function HolesTab({ flags }: { flags: Flag[] }) {
                 >
                   ?
                 </button>
-                <button
+                {!readOnly && <button
                   onClick={() => dismiss(f.key)}
                   title="Dismiss — I've thought about this"
                   className="text-[11px] text-[var(--ink-faint)] hover:text-[var(--ink)]"
                 >
                   ✕
-                </button>
+                </button>}
               </div>
               <p className="mt-0.5 text-[13px] font-medium leading-snug text-[var(--ink)]">{f.title}</p>
               <p className="mt-1 text-[11px] leading-relaxed text-[var(--ink-dim)]">{f.detail}</p>
               <div className="mt-1.5 flex flex-wrap items-center gap-1">
                 {f.nodeIds.slice(0, 6).map((id) => nodes[id] && <Ref key={id} n={nodes[id]} />)}
-                {f.fix && (
+                {f.fix && !readOnly && (
                   <button onClick={() => runFix(f.fix!.action)} className="bp-btn ml-auto px-2 py-0.5 text-[11px]">
                     {f.fix.label}
                   </button>
@@ -229,6 +230,7 @@ function Questions() {
 }
 
 function PictureTab({ flagCount }: { flagCount: number }) {
+  const readOnly = useReadOnly();
   const nodes = usePlan((s) => s.nodes);
   const edges = usePlan((s) => s.edges);
   const dismissed = usePlan((s) => s.dismissed);
@@ -289,7 +291,7 @@ function PictureTab({ flagCount }: { flagCount: number }) {
                     <Ref n={a} /><span className="text-[var(--ink-faint)]">↔</span><Ref n={b} />
                     <span className="bp-mono ml-1 truncate text-[10px] text-[var(--ink-faint)]">“{s.shared.join("”, “")}”</span>
                   </div>
-                  <div className="mt-1.5 flex gap-1">
+                  <div className={`mt-1.5 flex gap-1 ${readOnly ? "hidden" : ""}`}>
                     <button onClick={() => link(a, b)} className="bp-btn px-2 py-0.5 text-[11px]">Link them</button>
                     <button onClick={() => dismiss(pairKey(s.a, s.b))} className="bp-tool px-2 py-0.5 text-[11px]">Not related</button>
                   </div>

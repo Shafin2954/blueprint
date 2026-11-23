@@ -7,6 +7,7 @@ import type { Severity } from "@/lib/holes";
 import { BELIEF_KINDS, KIND_META, NODE_W, type Kind, type PlanNode } from "@/lib/types";
 import { balance, weight } from "@/lib/reason";
 import { hostOf, looksLikeImage } from "@/lib/image";
+import { useImageSrc } from "@/lib/images";
 
 export function Symbol({ kind, size = 14 }: { kind: Kind; size?: number }) {
   const s = size;
@@ -152,13 +153,18 @@ function NodeCard({
   });
   const [forW, againstW] = weighed ? weighed.split("/").map(Number) : [0, 0];
   const belief = BELIEF_KINDS.has(node.kind);
+  const img = useImageSrc(node.image);
   const editing = usePlan((s) => s.editing === node.id);
+  const readOnly = usePlan((s) => s.viewing !== null);
   const setEditing = (on: boolean) => usePlan.getState().setEditing(on ? node.id : null);
   const done = node.kind === "step" ? node.status === "done" : md === 1;
 
   return (
     <div
       data-node-id={node.id}
+      role="group"
+      aria-label={`${KIND_META[node.kind].label} ${node.ref}: ${node.title}`}
+      aria-current={selected || undefined}
       className={`bp-card bp-${node.kind} absolute cursor-grab active:cursor-grabbing ${selected ? "bp-selected" : ""} ${done ? "bp-done" : ""} ${gathered ? "bp-gathered" : ""}`}
       style={{ left: node.x, top: node.y, width: NODE_W, opacity: dimmed ? 0.38 : 1 }}
     >
@@ -178,6 +184,7 @@ function NodeCard({
           {node.kind === "step" && (
             <button
               data-nodrag
+              disabled={readOnly}
               onClick={() => cycleStatus(node.id)}
               title="Cycle status: todo → doing → done"
               className={`bp-mono rounded-sm border px-1.5 py-0.5 text-[9px] uppercase tracking-widest bp-status-${node.status}`}
@@ -234,10 +241,20 @@ function NodeCard({
           ) : (
             <p className="mt-1.5 line-clamp-3 text-[12px] leading-relaxed text-[var(--ink-dim)]">{node.body}</p>
           ))}
-        {(node.image || (node.link && looksLikeImage(node.link))) && (
+        {node.imageOmitted && !node.image && (
+          <span className="bp-mono mt-2 block rounded-sm border border-dashed border-[var(--line)] p-2 text-center text-[10px] text-[var(--ink-faint)]">
+            image not included in shared link
+          </span>
+        )}
+        {node.image && img === null && (
+          <span className="bp-mono mt-2 block rounded-sm border border-dashed border-[var(--line)] p-2 text-center text-[10px] text-[var(--ink-faint)]">
+            image not on this device
+          </span>
+        )}
+        {(img || (!node.image && node.link && looksLikeImage(node.link))) && (
           // eslint-disable-next-line @next/next/no-img-element -- user data URLs / arbitrary hosts
           <img
-            src={node.image ?? node.link}
+            src={img ?? node.link}
             alt=""
             draggable={false}
             className="mt-2 max-h-40 w-full rounded-sm border border-[var(--line)] object-cover"

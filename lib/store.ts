@@ -5,14 +5,16 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { decompose, split, type Draft } from "./generate";
 import { wouldCycle } from "./graph";
 import { defaultRel } from "./reason";
-import { BELIEF_KINDS, DEFAULT_CONFIDENCE, KIND_META, type Edge, type Kind, type PlanNode, type Rel, type Status, type View } from "./types";
+import { fitAround } from "./frames";
+import { BELIEF_KINDS, DEFAULT_CONFIDENCE, KIND_META, type Edge, type Frame, type Kind, type PlanNode, type Rel, type Status, type Strength, type View } from "./types";
 
-type Selection = { type: "node" | "edge"; id: string } | null;
+type Selection = { type: "node" | "edge" | "frame"; id: string } | null;
 
 interface PlanState {
   project: string;
   nodes: Record<string, PlanNode>;
   edges: Record<string, Edge>;
+  frames: Record<string, Frame>;
   counters: Record<Kind, number>;
   view: View;
   selection: Selection;
@@ -26,6 +28,8 @@ interface PlanState {
   linking: string | null;
   /** Which sheet is open (see lib/sheets.ts). */
   sheetId: string;
+  /** Viewing someone's shared link (read-only). `returnTo` is the sheet to go back to. */
+  viewing: { returnTo: string } | null;
   /** A card the user just created: the inspector focuses its title once, then clears this. */
   fresh: string | null;
   clearFresh: () => void;
@@ -46,9 +50,18 @@ interface PlanState {
   moveNode: (id: string, x: number, y: number) => void;
   /** Move many cards at once (one undo step). */
   setPositions: (pos: Record<string, { x: number; y: number }>) => void;
+  /** Frame around the given cards (or a default box at x,y). Returns its id. */
+  addFrame: (cardIds: string[], x: number, y: number, label?: string) => string;
+  updateFrame: (id: string, patch: Partial<Omit<Frame, "id">>) => void;
+  /** Move a frame and the cards inside it together. */
+  placeFrame: (id: string, x: number, y: number, members: Record<string, { x: number; y: number }>) => void;
+  removeFrame: (id: string) => void;
+  /** Shrink-wrap each frame around the cards it contained before a layout change. */
+  refitFrames: (members: Record<string, string[]>) => void;
   removeNode: (id: string) => void;
   connect: (from: string, to: string, rel?: Rel) => boolean;
   setRel: (edgeId: string, rel: Rel) => boolean;
+  setStrength: (edgeId: string, strength: Strength) => void;
   dismiss: (key: string) => void;
   gather: (id: string) => void;
   clearGathered: () => void;
@@ -67,7 +80,7 @@ interface PlanState {
   promote: (id: string) => void;
   focus: (id: string, w: number, h: number, select?: boolean) => void;
   /** Replace the sheet with a ready-made one (example or template). Undoable. */
-  loadSheet: (s: { project: string; nodes: Record<string, PlanNode>; edges: Record<string, Edge>; counters: Record<Kind, number> }) => void;
+  loadSheet: (s: { project: string; nodes: Record<string, PlanNode>; edges: Record<string, Edge>; counters: Record<Kind, number>; frames?: Record<string, Frame> }) => void;
   fit: (w: number, h: number, padLeft?: number) => void;
   importPlan: (data: unknown) => boolean;
   reset: () => void;
@@ -113,12 +126,16 @@ function makeNode(
   return [node, { ...counters, [kind]: n }];
 }
 
+/** True while looking at a shared link: everything is view-only. */
+export const useReadOnly = () => usePlan((s) => s.viewing !== null);
+
 export const usePlan = create<PlanState>()(
   persist(
     (set, get) => ({
       project: "Untitled",
       nodes: {},
       edges: {},
+      frames: {},
       counters: { ...ZERO },
       view: { x: 80, y: 90, k: 0.85 },
       selection: null,
@@ -127,6 +144,7 @@ export const usePlan = create<PlanState>()(
       showAllKinds: false,
       linking: null,
       sheetId: "",
+      viewing: null,
       fresh: null,
       clearFresh: () => set({ fresh: null }),
       editing: null,
@@ -161,6 +179,42 @@ export const usePlan = create<PlanState>()(
 
       moveNode: (id, x, y) =>
         set((s) => (s.nodes[id] ? { nodes: { ...s.nodes, [id]: { ...s.nodes[id], x, y } } } : s)),
+
+      addFrame: (cardIds, x, y, label = "Group") => {
+        const cards = cardIds.map((id) => get().nodes[id]).filter(Boolean);
+        const rect = cards.length ? fitAround(cards) : { x: Math.round(x / 12) * 12, y: Math.round(y / 12) * 12, w: 600, h: 360 };
+        const id = uid();
+        set((s) => ({ frames: { ...s.frames, [id]: { id, label, ...rect } }, selection: { type: "frame", id }, editing: id }));
+        return id;
+      },
+
+      updateFrame: (id, patch) =>
+        set((s) => (s.frames[id] ? { frames: { ...s.frames, [id]: { ...s.frames[id], ...patch } } } : s)),
+
+      placeFrame: (id, x, y, members) =>
+        set((s) => {
+          if (!s.frames[id]) return s;
+          const nodes = { ...s.nodes };
+          for (const [nid, p] of Object.entries(members)) if (nodes[nid]) nodes[nid] = { ...nodes[nid], x: p.x, y: p.y };
+          return { nodes, frames: { ...s.frames, [id]: { ...s.frames[id], x, y } } };
+        }),
+
+      removeFrame: (id) =>
+        set((s) => {
+          const frames = { ...s.frames };
+          delete frames[id];
+          return { frames, selection: s.selection?.id === id ? null : s.selection };
+        }),
+
+      refitFrames: (members) =>
+        set((s) => {
+          const frames = { ...s.frames };
+          for (const [fid, ids] of Object.entries(members)) {
+            const cards = ids.map((i) => s.nodes[i]).filter(Boolean);
+            if (frames[fid] && cards.length) frames[fid] = { ...frames[fid], ...fitAround(cards) };
+          }
+          return { frames };
+        }),
 
       setPositions: (pos) =>
         set((s) => {
@@ -202,6 +256,9 @@ export const usePlan = create<PlanState>()(
         set((s) => ({ edges: { ...s.edges, [edgeId]: { ...e, rel } } }));
         return true;
       },
+
+      setStrength: (edgeId, strength) =>
+        set((s) => (s.edges[edgeId] ? { edges: { ...s.edges, [edgeId]: { ...s.edges[edgeId], strength } } } : s)),
 
       dismiss: (key) => set((s) => ({ dismissed: [...new Set([...s.dismissed, key])] })),
 
@@ -357,6 +414,7 @@ export const usePlan = create<PlanState>()(
           project: sh.project,
           nodes: sh.nodes,
           edges: sh.edges,
+          frames: sh.frames ?? {},
           counters: { ...ZERO, ...sh.counters },
           selection: null,
           gathered: [],
@@ -404,6 +462,7 @@ export const usePlan = create<PlanState>()(
         set({
           nodes: {},
           edges: {},
+          frames: {},
           counters: { ...ZERO },
           project: "Untitled",
           selection: null,
@@ -427,8 +486,8 @@ export const usePlan = create<PlanState>()(
         removeItem: (k) => localStorage.removeItem(k),
       })),
       skipHydration: true,
-      partialize: ({ project, nodes, edges, counters, view, dismissed, showAllKinds, sheetId }) => ({
-        project, nodes, edges, counters, view, dismissed, showAllKinds, sheetId,
+      partialize: ({ project, nodes, edges, frames, counters, view, dismissed, showAllKinds, sheetId, viewing }) => ({
+        project, nodes, edges, frames, counters, view, dismissed, showAllKinds, sheetId, viewing,
       }),
     },
   ),

@@ -81,6 +81,20 @@ describe("weighing", () => {
     expect(bal.echoes).toBe(1);
   });
 
+  it("scales each link by its strength", () => {
+    const b = board()
+      .card("e1", "evidence", { confidence: 60 })
+      .card("e2", "evidence", { confidence: 60 })
+      .card("c", "claim")
+      .link("e1", "c", "supports")
+      .link("e2", "c", "contradicts");
+    b.edges.x0.strength = "strong";
+    b.edges.x1.strength = "weak";
+    const bal = balance("c", b.nodes, { ...b.edges });
+    expect(bal.forW).toBe(90);
+    expect(bal.againstW).toBe(30);
+  });
+
   it("returns no score when nothing bears on a card", () => {
     const b = board().card("c", "claim");
     expect(balance("c", b.nodes, b.edges).score).toBeNull();
@@ -194,6 +208,17 @@ describe("insight", () => {
     const s = suggestLinks(b.nodes, b.edges, new Set());
     expect(s).toHaveLength(1);
     expect([s[0].a, s[0].b].sort()).toEqual(["a", "b"]);
+  });
+});
+
+describe("frames", () => {
+  it("counts a card as inside when its middle is inside", async () => {
+    const { membersOf, fitAround } = await import("../frames");
+    const b = board().card("a", "thought", { x: 0, y: 0 }).card("b", "thought", { x: 500, y: 0 });
+    const f = { id: "f", label: "G", ...fitAround([b.nodes.a]) };
+    expect(membersOf(f, b.nodes)).toEqual(["a"]);
+    const md = boardToMarkdown("P", b.nodes, b.edges, false, { f });
+    expect(md).toContain("**G**: T-01");
   });
 });
 

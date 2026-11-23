@@ -145,6 +145,13 @@ export const HELP: HelpEntry[] = [
     keywords: "not against conflict tension",
   },
   {
+    id: "strength", group: "Links", title: "Link strength",
+    summary: "Weak ×0.5, normal ×1, strong ×1.5 — how much a supporting or contradicting link counts.",
+    body: "Click a supports or contradicts link to set its strength. A clue that clinches it is strong; one that only hints is weak. Its weight in the for/against bar is the card's “how sure” × the strength. Thicker lines are stronger links.",
+    demo: [[c("evidence", "Fingerprints on the tin", { sure: 80 }), "supports", c("claim", "Brother took it")]],
+    keywords: "strength weight strong weak counts thick thin",
+  },
+  {
     id: "linking", group: "Links", title: "Making and changing links",
     summary: "Drag from a card's right port; click a link to change it.",
     body: "Drag from the round port on a card's right edge onto another card. Drop on empty paper instead and the natural next card appears there (evidence → claim, claim → conclusion, step → step). Click any link to switch between feeds, supports and contradicts, or delete it. Links that would loop back on themselves are refused.",
@@ -231,15 +238,22 @@ export const HELP: HelpEntry[] = [
   {
     id: "attach", group: "Tools", title: "Images & links",
     summary: "Attach, paste, or drop them.",
-    body: "In the inspector: attach an image, or paste one into Notes. Drop an image or URL on a card to attach it there; on empty paper to create an evidence card. Images are shrunk and saved in your browser, which has limited room — if it fills up you'll see a warning.",
+    body: "In the inspector: attach an image, or paste one into Notes. Drop an image or URL on a card to attach it there; on empty paper to create an evidence card. Images are saved in your browser's image store (plenty of room), separate from the sheet itself. Export embeds them, so an exported file is a complete backup.",
     keywords: "picture photo url source upload paste drop",
   },
   {
-    id: "share", group: "Tools", title: "Share with AI",
-    summary: "Export the board as Markdown for a second opinion.",
-    body: "Blueprint never talks to an AI. This produces a .md file with every card, confidence, source, link, the weighing and the flags already raised, plus an optional consistency-check request. Copy or download it, then paste into any assistant. Images aren't included.",
+    id: "share-link", group: "Tools", title: "Share a link",
+    summary: "Share → Create link: anyone with it sees your sheet read-only and can save a copy.",
+    body: "The whole sheet is compressed into the link itself (the part after #, which browsers never send to a server), so nothing is uploaded and there's no account. Images are left out. Someone opening it sees a read-only view with “Save a copy to edit” and “Close”; their own sheets are untouched. A link is a snapshot — make a new one after changes.",
+    keywords: "share link url send friend collaborate read-only view copy",
+  },
+  {
+    id: "share", group: "Tools", title: "Share with AI (Markdown)",
+    summary: "Share → export the sheet as Markdown for an AI's second opinion.",
+    body: "Blueprint never talks to an AI. This produces a .md file with every card, confidence, source, link (and its strength), frame groups, the weighing and the flags already raised, plus an optional consistency-check request. Copy or download it, then paste into any assistant. Images aren't included.",
     keywords: "export markdown md ai chatgpt claude consistency",
   },
+
   {
     id: "plan-actions", group: "Tools", title: "Decompose, split, promote",
     summary: "Shortcuts in the inspector.",
@@ -271,6 +285,12 @@ export const HELP: HelpEntry[] = [
     keywords: "edit rename title inline type",
   },
   {
+    id: "frames", group: "Tools", title: "Frames",
+    summary: "Draw a labeled box around related cards: “Suspects”, “Money”, “Phase 1”.",
+    body: "Gather cards (shift-click or Gather) or select one, then press Frame — it wraps them with a label. With nothing chosen you get an empty frame to drag cards into. A card belongs to a frame when its middle is inside. Drag the label to move the frame with its cards, drag the corner to resize, double-click the label to rename. Removing a frame keeps its cards. Tidy keeps frames wrapped around their cards.",
+    keywords: "frame group box cluster label section area",
+  },
+  {
     id: "tidy", group: "Tools", title: "Tidy",
     summary: "Lays the sheet out left to right by how cards connect.",
     body: "Cards with nothing feeding them go on the left; each card sits one column right of what supports or feeds it, so evidence → claims → conclusions and steps → milestones → goals read like a sentence. Separate clusters stack vertically; unlinked cards go in a grid underneath. It's one undo step, so try it freely.",
@@ -281,6 +301,12 @@ export const HELP: HelpEntry[] = [
     summary: "Add Blueprint to your home screen; it then works offline.",
     body: "On a phone: open the site, then Share → Add to Home Screen (iPhone) or the ⋮ menu → Install app (Android). On a computer, use the install icon in the address bar. It opens full-screen and works without a connection; your sheets stay on that device.",
     keywords: "install app pwa home screen offline phone desktop",
+  },
+  {
+    id: "keyboard", group: "Tools", title: "Keyboard only",
+    summary: "Arrows move between cards; Enter edits; L links; N adds the next card.",
+    body: "Arrow keys select the nearest card in that direction (from the middle of the screen if nothing is selected). Shift+arrows nudge the selected card. Enter edits its title. L starts a link: choose the target with arrows and press Enter. N adds the natural next card, already linked (evidence → claim → conclusion). Space gathers, C combines the gathered cards into a conclusion, F frames, T cycles a step's status, Delete removes, Esc deselects. Screen readers announce the selected card.",
+    keywords: "keyboard accessibility arrows shortcuts screen reader a11y navigate",
   },
   {
     id: "undo", group: "Tools", title: "Undo & redo",

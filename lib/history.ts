@@ -10,12 +10,13 @@
  */
 import { useSyncExternalStore } from "react";
 import { usePlan } from "./store";
-import type { Edge, Kind, PlanNode } from "./types";
+import type { Edge, Frame, Kind, PlanNode } from "./types";
 
 interface Snapshot {
   project: string;
   nodes: Record<string, PlanNode>;
   edges: Record<string, Edge>;
+  frames: Record<string, Frame>;
   counters: Record<Kind, number>;
 }
 
@@ -36,7 +37,7 @@ const emit = () => {
   listeners.forEach((l) => l());
 };
 
-const snap = (s: Snapshot): Snapshot => ({ project: s.project, nodes: s.nodes, edges: s.edges, counters: s.counters });
+const snap = (s: Snapshot): Snapshot => ({ project: s.project, nodes: s.nodes, edges: s.edges, frames: s.frames, counters: s.counters });
 
 /** Begin recording. Call once, after the saved board has loaded. */
 export function startHistory() {
@@ -44,7 +45,7 @@ export function startHistory() {
   started = true;
   usePlan.subscribe((state, prev) => {
     if (applying) return;
-    if (state.nodes === prev.nodes && state.edges === prev.edges && state.project === prev.project) return;
+    if (state.nodes === prev.nodes && state.edges === prev.edges && state.frames === prev.frames && state.project === prev.project) return;
     const now = performance.now();
     if (now - lastChange > BURST_MS) {
       past.push(snap(prev));
@@ -62,7 +63,7 @@ function apply(s: Snapshot) {
   usePlan.setState({
     ...s,
     // Drop selection/gathering that point at cards which no longer exist.
-    selection: cur.selection && (s.nodes[cur.selection.id] || s.edges[cur.selection.id]) ? cur.selection : null,
+    selection: cur.selection && (s.nodes[cur.selection.id] || s.edges[cur.selection.id] || s.frames[cur.selection.id]) ? cur.selection : null,
     gathered: cur.gathered.filter((g) => s.nodes[g]),
     linking: null,
   });
@@ -130,7 +131,7 @@ export function toast(text: string) {
 }
 
 /** Delete a card or link as its own undo step, and offer to take it back. */
-export function deleteWithUndo(sel: { type: "node" | "edge"; id: string }) {
+export function deleteWithUndo(sel: { type: "node" | "edge" | "frame"; id: string }) {
   const s = usePlan.getState();
   checkpoint();
   if (sel.type === "node") {
@@ -139,6 +140,11 @@ export function deleteWithUndo(sel: { type: "node" | "edge"; id: string }) {
     const links = Object.values(s.edges).filter((e) => e.from === sel.id || e.to === sel.id).length;
     s.removeNode(sel.id);
     toastUndo(`Deleted ${n.ref}${links ? ` and ${links} link${links > 1 ? "s" : ""}` : ""}`);
+  } else if (sel.type === "frame") {
+    const f = s.frames[sel.id];
+    if (!f) return;
+    s.removeFrame(sel.id);
+    toastUndo(`Removed frame “${f.label}” (its cards stay)`);
   } else {
     if (!s.edges[sel.id]) return;
     s.removeEdge(sel.id);

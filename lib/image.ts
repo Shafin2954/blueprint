@@ -1,8 +1,10 @@
+import { storeImage } from "./images";
+
 /**
- * Shrinks an image file to a small JPEG data URL so it fits in browser storage.
- * A board's images all live in localStorage (~5 MB), so ~60 KB each is the budget.
+ * Shrinks a picture to a JPEG (longest side `max` px) and stores it in IndexedDB.
+ * Returns the reference to put on the card ("idb:…").
  */
-export async function imageToDataUrl(file: Blob, max = 720, quality = 0.72): Promise<string> {
+export async function saveImage(file: Blob, max = 1600, quality = 0.82): Promise<string> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
   const w = Math.max(1, Math.round(bitmap.width * scale));
@@ -15,7 +17,10 @@ export async function imageToDataUrl(file: Blob, max = 720, quality = 0.72): Pro
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(bitmap, 0, 0, w, h);
   bitmap.close();
-  return canvas.toDataURL("image/jpeg", quality);
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("encode failed"))), "image/jpeg", quality),
+  );
+  return storeImage(blob);
 }
 
 export function isUrl(s: string) {

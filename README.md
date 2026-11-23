@@ -22,7 +22,7 @@ A place for your own brain to play: no AI inside, no network calls, nothing preb
 
 **Say what you think, and how sure you are.** *Claims* are things you think might be true; *assumptions* are things you're taking for granted. Each has a "how sure am I?" slider.
 
-**Put it together.** Link evidence to claims as **supports** or **contradicts**. Each card shows a for/against bar: every linked card adds its own confidence to that side. Shift-click several cards and hit **Combine → conclusion** to deduce what they mean together.
+**Put it together.** Link evidence to claims as **supports** or **contradicts**, and mark a link **weak** (×0.5) or **strong** (×1.5). Each card shows a for/against bar: every linked card adds its confidence × the link's strength to that side. Shift-click several cards and hit **Combine → conclusion** to deduce what they mean together.
 
 **Compare rival answers.** Link several claims into a *Question* and the *Big picture* tab ranks them by the weight of evidence. Your own confidence is shown beside each one, so you can see where they disagree.
 
@@ -37,6 +37,8 @@ A place for your own brain to play: no AI inside, no network calls, nothing preb
 | **Built only on beliefs**: no evidence anywhere underneath | Steps leading nowhere, risks without a counter-move |
 | **Hangs on one thread**, **holding both sides**, **sure of rival answers**, evidence with no source | Floating cards, open questions |
 
+**Group and tidy.** Draw a **frame** around related cards ("Suspects", "Money"); drag its label to move the group. **Tidy** lays the sheet out left to right by how cards connect.
+
 **Plan.** *Next* shows the steps you can start right now; goal progress is worked out from the steps feeding it.
 
 **Generate.** Offline prompts to push your own thinking: creative lenses (shrink, invert, collide, constrain…) and AI-era angles (new scarcity, trust, glue work, tools for agents…).
@@ -47,7 +49,11 @@ Press **?** (or the ? button) for a searchable guide to every card, link, plot-h
 
 **Start** (shown on an empty sheet) offers a way in: three worked examples (a mystery, a decision, a project plan), a step-by-step **tour** of the mystery, and fill-in **templates** (weigh a decision, solve a mystery, test a belief, plan a project) whose `[placeholders]` you replace in your own words. If your sheet has cards, it opens as a new sheet instead.
 
-## Share with AI (optional, outside the app)
+## Share
+
+**Share a link:** *Share → Create link* packs the whole sheet into the link itself (after the `#`, which browsers never send to a server — nothing is uploaded). Whoever opens it sees it read-only and can save their own copy. Images are left out.
+
+### Share with AI (optional, outside the app)
 
 Blueprint never talks to an AI. **Share with AI** turns the board into a Markdown file: every card with its confidence and source, every link, how the weights add up, and the flags already raised, with a consistency-check request on top. Copy it or download the `.md`, then paste it into any assistant for a second opinion on whether your thinking holds together. Images aren't included.
 
@@ -58,6 +64,8 @@ Blueprint is an installable web app: on a phone use **Share → Add to Home Scre
 ## Safety
 
 - **Undo / redo everything** with ↶ ↷ or Ctrl/⌘+Z, Ctrl/⌘+Shift+Z. Deleting shows a toast with an Undo button.
+- **Keyboard only:** arrows move between cards, Enter edits, L links, N adds the next card, Space/C gather and combine, F frames. Screen readers announce the selected card.
+- **Images** are stored in the browser's IndexedDB (plenty of room), separate from the sheets; Export embeds them so a backup file is complete.
 - **Sheets:** keep as many boards as you like (new, open, rename, duplicate, delete). They save automatically in this browser; use **Export** to back one up or move it to another device.
 
 ## Run

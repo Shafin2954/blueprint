@@ -36,6 +36,8 @@ export interface PlanNode {
    * times doesn't look like three independent reasons.
    */
   source?: string;
+  /** Set on cards opened from a share link whose image was left out of the link. */
+  imageOmitted?: boolean;
 }
 
 /**
@@ -45,18 +47,37 @@ export interface PlanNode {
  */
 export type Rel = "feeds" | "supports" | "contradicts";
 
+export type Strength = "weak" | "normal" | "strong";
+
 export interface Edge {
   id: string;
   from: string;
   to: string;
   rel?: Rel;
+  /** How much this link bears on the card it points at (supports / contradicts only). */
+  strength?: Strength;
 }
+
+export const STRENGTH: Record<Strength, { mult: number; label: string; adverb: string }> = {
+  weak: { mult: 0.5, label: "Weak", adverb: "weakly" },
+  normal: { mult: 1, label: "Normal", adverb: "" },
+  strong: { mult: 1.5, label: "Strong", adverb: "strongly" },
+};
 
 export const REL_META: Record<Rel, { label: string; verb: string }> = {
   feeds: { label: "Feeds", verb: "feeds into" },
   supports: { label: "Supports", verb: "supports" },
   contradicts: { label: "Contradicts", verb: "contradicts" },
 };
+
+export interface Frame {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  label: string;
+}
 
 export interface View {
   x: number;

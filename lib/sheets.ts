@@ -10,12 +10,14 @@
 import { useSyncExternalStore } from "react";
 import { usePlan } from "./store";
 import { loadWithoutHistory } from "./history";
-import { KINDS, type Edge, type Kind, type PlanNode, type View } from "./types";
+import { collectGarbage, internImages } from "./images";
+import { KINDS, type Edge, type Frame, type Kind, type PlanNode, type View } from "./types";
 
 export interface SheetData {
   project: string;
   nodes: Record<string, PlanNode>;
   edges: Record<string, Edge>;
+  frames?: Record<string, Frame>;
   counters: Record<Kind, number>;
   view?: View;
   dismissed?: string[];
@@ -60,13 +62,14 @@ function writeIndex() {
 }
 
 function currentData(): SheetData {
-  const { project, nodes, edges, counters, view, dismissed } = usePlan.getState();
-  return { project, nodes, edges, counters, view, dismissed };
+  const { project, nodes, edges, frames, counters, view, dismissed } = usePlan.getState();
+  return { project, nodes, edges, frames, counters, view, dismissed };
 }
 
 /** Keep the open sheet's entry in the list current (name, size, last edit). */
 function touchCurrent() {
   const s = usePlan.getState();
+  if (s.viewing) return; // a shared sheet being viewed isn't one of yours
   const meta: SheetMeta = { id: s.sheetId, name: s.project || "Untitled", cards: Object.keys(s.nodes).length, updatedAt: Date.now() };
   const i = index.findIndex((m) => m.id === s.sheetId);
   if (i >= 0) index[i] = meta;
@@ -107,13 +110,15 @@ function park(): boolean {
   }
 }
 
-function open(id: string, data: SheetData) {
+function open(id: string, data: SheetData, viewing: { returnTo: string } | null = null) {
   loadWithoutHistory(() =>
     usePlan.setState({
+      viewing,
       sheetId: id,
       project: data.project,
       nodes: data.nodes,
       edges: data.edges,
+      frames: data.frames ?? {},
       counters: { ...(Object.fromEntries(KINDS.map((k) => [k, 0])) as Record<Kind, number>), ...data.counters },
       view: data.view ?? BLANK_VIEW,
       dismissed: data.dismissed ?? [],
@@ -210,4 +215,83 @@ export function useSheets(): SheetMeta[] {
     () => 0,
   );
   return [...index].sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+/**
+ * Housekeeping, run once after startup:
+ * 1. move inline (data:) images on every sheet into the image store, shrinking the sheets;
+ * 2. delete stored images that no sheet refers to any more.
+ */
+export async function maintainImages() {
+  const refs = new Set<string>();
+  const note = (nodes: Record<string, PlanNode>) => Object.values(nodes).forEach((n) => n.image && refs.add(n.image));
+
+  const cur = await internImages(usePlan.getState().nodes);
+  if (cur) {
+    // Patch only the image fields, in case the user edited something meanwhile.
+    loadWithoutHistory(() =>
+      usePlan.setState((s) => {
+        const nodes = { ...s.nodes };
+        for (const [id, n] of Object.entries(cur)) if (nodes[id] && n.image !== nodes[id].image) nodes[id] = { ...nodes[id], image: n.image };
+        return { nodes };
+      }),
+    );
+  }
+  note(usePlan.getState().nodes);
+
+  for (const m of index) {
+    if (m.id === usePlan.getState().sheetId) continue;
+    const raw = localStorage.getItem(slot(m.id));
+    if (!raw) continue;
+    const data = JSON.parse(raw) as SheetData;
+    const moved = await internImages(data.nodes);
+    if (moved) {
+      data.nodes = moved;
+      try {
+        localStorage.setItem(slot(m.id), JSON.stringify(data));
+      } catch {
+        /* keep the old copy */
+      }
+    }
+    note(data.nodes);
+  }
+  // Images referenced from undo history may also be in use; history is per session,
+  // so only clean up at startup, before anything can be undone.
+  note(usePlan.getState().nodes); // anything attached while we were busy
+  return collectGarbage(refs);
+}
+
+// ── Viewing a shared link ──
+
+/** Show a shared sheet read-only. Your open sheet is parked and comes back on close. */
+export function enterViewer(data: SheetData): boolean {
+  const s = usePlan.getState();
+  if (s.viewing) {
+    open(s.sheetId, data, s.viewing); // already viewing: just swap the content
+    return true;
+  }
+  touchCurrent();
+  if (!park()) return false;
+  open(`view-${newId()}`, data, { returnTo: s.sheetId });
+  return true;
+}
+
+/** Leave the shared sheet and reopen what you had before. */
+export function exitViewer() {
+  const s = usePlan.getState();
+  if (!s.viewing) return;
+  const back = s.viewing.returnTo;
+  const raw = localStorage.getItem(slot(back));
+  const data: SheetData = raw ? JSON.parse(raw) : { project: "Untitled", nodes: {}, edges: {}, counters: {} as Record<Kind, number> };
+  open(raw ? back : newId(), data);
+  if (raw) localStorage.removeItem(slot(back));
+  touchCurrent();
+}
+
+/** Keep the shared sheet: it becomes one of your own sheets (your previous one stays in the list). */
+export function keepSharedCopy() {
+  const s = usePlan.getState();
+  if (!s.viewing) return;
+  usePlan.setState({ viewing: null, sheetId: newId(), project: s.project });
+  touchCurrent();
 }

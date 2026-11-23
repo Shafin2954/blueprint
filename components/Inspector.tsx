@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { imageToDataUrl, isUrl } from "@/lib/image";
+import { saveImage, isUrl } from "@/lib/image";
+import { useImageSrc } from "@/lib/images";
 import { deleteWithUndo } from "@/lib/history";
-import { usePlan } from "@/lib/store";
+import { usePlan, useReadOnly } from "@/lib/store";
 import { BELIEF_KINDS, DEFAULT_CONFIDENCE, KIND_META, KINDS, REL_META, type Kind, type Status } from "@/lib/types";
 import { Symbol } from "./NodeCard";
 
@@ -15,6 +16,8 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
   const { updateNode, startLinking, decompose, splitStep, promote, focus, testAssumption, addNode, connect } =
     usePlan.getState();
   const fileRef = useRef<HTMLInputElement>(null);
+  const readOnly = useReadOnly();
+  const thumb = useImageSrc(node?.image);
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
   const fresh = usePlan((s) => s.fresh === id);
@@ -35,7 +38,7 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
     if (!file) return;
     setImgErr(null);
     try {
-      updateNode(id, { image: await imageToDataUrl(file) });
+      updateNode(id, { image: await saveImage(file) });
     } catch {
       setImgErr("Couldn't read that image.");
     }
@@ -79,6 +82,7 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
 
   return (
     <aside className="bp-panel pointer-events-auto ml-auto max-h-full w-[300px] max-w-[calc(100vw-32px)] overflow-y-auto p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto">
+      <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
       <div className="flex items-center gap-2">
         <span className={`bp-${node.kind} bp-accent`}><Symbol kind={node.kind} size={16} /></span>
         <span className="bp-mono whitespace-nowrap text-[11px] uppercase tracking-[0.2em] text-[var(--ink-dim)]">{node.ref}</span>
@@ -186,7 +190,7 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
         {node.image ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element -- local data URL */}
-            <img src={node.image} alt="" className="h-10 w-14 rounded-sm border border-[var(--line)] object-cover" />
+            {thumb ? <img src={thumb} alt="" className="h-10 w-14 rounded-sm border border-[var(--line)] object-cover" /> : <span className="bp-mono text-[10px] text-[var(--ink-faint)]">{thumb === null ? "missing" : "…"}</span>}
             <button onClick={() => fileRef.current?.click()} className="bp-tool ml-auto text-[11px]">Replace</button>
             <button onClick={() => updateNode(id, { image: undefined })} className="bp-tool text-[11px]">Remove</button>
           </>
@@ -268,6 +272,7 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
 
       {linkList("Fed by", links.fedBy)}
       {linkList("Feeds into", links.feeds)}
+      </fieldset>
     </aside>
   );
 }

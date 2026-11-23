@@ -3,8 +3,9 @@
  * consistency check. Nothing is sent anywhere: the app only produces text.
  */
 import { findHoles } from "./holes";
+import { membersOf } from "./frames";
 import { balance, weight } from "./reason";
-import { BELIEF_KINDS, KIND_META, KINDS, REL_META, type Edge, type PlanNode } from "./types";
+import { BELIEF_KINDS, KIND_META, KINDS, REL_META, STRENGTH, type Edge, type Frame, type PlanNode } from "./types";
 
 type Nodes = Record<string, PlanNode>;
 type Edges = Record<string, Edge>;
@@ -25,7 +26,7 @@ Refer to cards by their ref (e.g. \`E-02\`). Be direct but kind. Finish with the
 
 const indent = (s: string) => s.trim().split("\n").map((l) => `  > ${l}`).join("\n");
 
-export function boardToMarkdown(project: string, nodes: Nodes, edges: Edges, withRequest = true): string {
+export function boardToMarkdown(project: string, nodes: Nodes, edges: Edges, withRequest = true, frames: Record<string, Frame> = {}): string {
   const list = Object.values(nodes);
   const out: string[] = [`# ${project || "Untitled"}`, ""];
   out.push(`_Exported from Blueprint on ${new Date().toISOString().slice(0, 10)} · ${list.length} cards · ${Object.keys(edges).length} links_`, "");
@@ -63,13 +64,23 @@ export function boardToMarkdown(project: string, nodes: Nodes, edges: Edges, wit
     out.push("");
   }
 
+  const groups = Object.values(frames)
+    .map((f) => ({ f, ids: membersOf(f, nodes) }))
+    .filter((g) => g.ids.length);
+  if (groups.length) {
+    out.push("## Groups", "", "_Cards I've framed together._", "");
+    for (const { f, ids } of groups) out.push(`- **${f.label}**: ${ids.map((id) => nodes[id].ref).join(", ")}`);
+    out.push("");
+  }
+
   const links = Object.values(edges).filter((e) => nodes[e.from] && nodes[e.to]);
   if (links.length) {
     out.push("## Links", "");
     for (const e of links) {
       const a = nodes[e.from];
       const b = nodes[e.to];
-      out.push(`- ${a.ref} **${REL_META[e.rel ?? "feeds"].verb}** ${b.ref}  _(${a.title} → ${b.title})_`);
+      const how = e.rel && e.rel !== "feeds" ? STRENGTH[e.strength ?? "normal"].adverb : "";
+      out.push(`- ${a.ref} **${how ? `${how} ` : ""}${REL_META[e.rel ?? "feeds"].verb}** ${b.ref}  _(${a.title} → ${b.title})_`);
     }
     out.push("");
   }
@@ -80,7 +91,7 @@ export function boardToMarkdown(project: string, nodes: Nodes, edges: Edges, wit
     .filter(({ b }) => b.score !== null)
     .map(({ n, b }) => `- **${n.ref}** ${n.title}: for ${Math.round(b.forW)} (${b.pro.map((p) => p.ref).join(", ") || "—"}) vs against ${Math.round(b.againstW)} (${b.con.map((p) => p.ref).join(", ") || "—"})`);
   if (lines.length) {
-    out.push("## How the weights add up", "", "_Each supporting or contradicting card adds its own confidence to that side._", "", ...lines, "");
+    out.push("## How the weights add up", "", "_Each supporting or contradicting card adds its own confidence to that side, ×0.5 for weak links and ×1.5 for strong ones; cards from the same source count once._", "", ...lines, "");
   }
 
   const flags = findHoles(nodes, edges);

@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { usePlan } from "@/lib/store";
+import { usePlan, useReadOnly } from "@/lib/store";
 import { generate, type Draft, type GenMode } from "@/lib/generate";
 import { boardToMarkdown } from "@/lib/exportMd";
+import { encodeSheet, shareUrl } from "@/lib/shareLink";
 import { deleteWithUndo } from "@/lib/history";
-import { KIND_META, REL_META, type Rel } from "@/lib/types";
+import { membersOf } from "@/lib/frames";
+import { KIND_META, REL_META, STRENGTH, type Rel, type Strength } from "@/lib/types";
 import { Symbol } from "./NodeCard";
 
 export const viewCenter = () => {
@@ -156,13 +158,64 @@ export function Dump({ onClose }: { onClose: () => void }) {
   );
 }
 
+function ShareLink() {
+  const [url, setUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const hasImages = usePlan((s) => Object.values(s.nodes).some((n) => n.image));
+  const make = async () => {
+    setBusy(true);
+    const { project, nodes, edges, frames, counters } = usePlan.getState();
+    setUrl(shareUrl(await encodeSheet({ project, nodes, edges, frames, counters })));
+    setBusy(false);
+  };
+  return (
+    <div className="space-y-2 border-b border-[var(--line)] p-4 text-[12px] leading-relaxed text-[var(--ink-dim)]">
+      <div className="bp-label">Share a link</div>
+      <p>
+        Anyone with the link sees this sheet read-only and can save their own copy. The whole sheet is packed into the link
+        itself — nothing is uploaded anywhere.{hasImages && " Images aren't included."}
+      </p>
+      {url ? (
+        <>
+          <input readOnly value={url} onFocus={(e) => e.target.select()} className="bp-input bp-mono text-[11px]" aria-label="Share link" />
+          <div className="flex items-center gap-2">
+            <span className={`bp-mono text-[10px] ${url.length > 8000 ? "text-[var(--warn)]" : "text-[var(--ink-faint)]"}`}>
+              {url.length.toLocaleString()} characters{url.length > 8000 ? " — long; some chat apps may cut it" : ""}
+            </span>
+            <button
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(url);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1600);
+                } catch {}
+              }}
+              className="bp-btn bp-btn-primary ml-auto"
+            >
+              {copied ? "Copied ✓" : "Copy link"}
+            </button>
+          </div>
+          <p className="text-[11px] text-[var(--ink-faint)]">The link is a snapshot: later edits need a new link.</p>
+        </>
+      ) : (
+        <button onClick={make} disabled={busy} className="bp-btn bp-btn-primary">
+          {busy ? "Packing…" : "Create link"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function Share({ onClose }: { onClose: () => void }) {
+  const readOnly = useReadOnly();
   const project = usePlan((s) => s.project);
   const nodes = usePlan((s) => s.nodes);
   const edges = usePlan((s) => s.edges);
   const [withRequest, setWithRequest] = useState(true);
   const [copied, setCopied] = useState(false);
-  const md = useMemo(() => boardToMarkdown(project, nodes, edges, withRequest), [project, nodes, edges, withRequest]);
+  const frames = usePlan((s) => s.frames);
+  const md = useMemo(() => boardToMarkdown(project, nodes, edges, withRequest, frames), [project, nodes, edges, withRequest, frames]);
 
   const download = () => {
     const blob = new Blob([md], { type: "text/markdown" });
@@ -174,8 +227,10 @@ export function Share({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Shell title="Share with an AI" onClose={onClose}>
+    <Shell title="Share" onClose={onClose}>
+      {!readOnly && <ShareLink />}
       <div className="space-y-3 p-4 text-[12px] leading-relaxed text-[var(--ink-dim)]">
+        <div className="bp-label">Share with an AI (Markdown)</div>
         <p>
           Blueprint never talks to an AI itself. This turns your board into a Markdown file you can paste into whichever
           assistant you like, for a second opinion on whether your thinking holds together.
@@ -210,9 +265,10 @@ export function Share({ onClose }: { onClose: () => void }) {
 }
 
 export function EdgePanel({ id }: { id: string }) {
+  const readOnly = useReadOnly();
   const edge = usePlan((s) => s.edges[id]);
   const nodes = usePlan((s) => s.nodes);
-  const { setRel } = usePlan.getState();
+  const { setRel, setStrength } = usePlan.getState();
   const [err, setErr] = useState(false);
   if (!edge) return null;
   const a = nodes[edge.from];
@@ -220,6 +276,7 @@ export function EdgePanel({ id }: { id: string }) {
   const rel = edge.rel ?? "feeds";
   return (
     <aside className="bp-panel pointer-events-auto ml-auto w-[300px] max-w-[calc(100vw-32px)] p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto">
+      <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
       <div className="bp-label">Link</div>
       <p className="mt-1 text-[13px] leading-snug text-[var(--ink)]">
         <span className="bp-mono text-[11px] text-[var(--ink-dim)]">{a?.ref}</span> {a?.title}
@@ -240,11 +297,87 @@ export function EdgePanel({ id }: { id: string }) {
         ))}
       </div>
       {err && <p className="mt-2 text-[11px] text-[var(--warn)]">That would make a loop.</p>}
+      {rel !== "feeds" && (
+        <>
+          <div className="bp-label mt-4">How much does it count?</div>
+          <div className="mt-1 grid grid-cols-3 gap-1">
+            {(Object.keys(STRENGTH) as Strength[]).map((k) => (
+              <button
+                key={k}
+                onClick={() => setStrength(id, k)}
+                aria-pressed={(edge.strength ?? "normal") === k}
+                className={`bp-mono rounded-sm border py-1.5 text-[10px] uppercase tracking-[0.14em] ${
+                  (edge.strength ?? "normal") === k ? "border-[var(--spark)] text-[var(--spark)]" : "border-[var(--line)] text-[var(--ink-faint)]"
+                }`}
+              >
+                {STRENGTH[k].label} ×{STRENGTH[k].mult}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--ink-faint)]">
+            Strong evidence that clinches it, or something that only hints. Its weight is the card&apos;s “how sure” × this.
+          </p>
+        </>
+      )}
       <p className="mt-3 text-[11px] leading-relaxed text-[var(--ink-faint)]">
         <b>Feeds</b>: leads to / unlocks. <b>Supports</b>: is a reason or evidence for. <b>Contradicts</b>: both can&apos;t be true — the
         plot-hole checker will chase it.
       </p>
       <button onClick={() => deleteWithUndo({ type: "edge", id })} className="bp-btn bp-btn-danger mt-3 w-full">Delete link</button>
+      </fieldset>
+    </aside>
+  );
+}
+
+export function FramePanel({ id }: { id: string }) {
+  const readOnly = useReadOnly();
+  const frame = usePlan((s) => s.frames[id]);
+  const nodes = usePlan((s) => s.nodes);
+  if (!frame) return null;
+  const members = membersOf(frame, nodes).map((m) => nodes[m]);
+  return (
+    <aside className="bp-panel pointer-events-auto ml-auto w-[300px] max-w-[calc(100vw-32px)] p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto">
+      <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
+      <label className="bp-label block" htmlFor={`frame-${id}`}>Frame label</label>
+      <input
+        id={`frame-${id}`}
+        value={frame.label}
+        onChange={(e) => usePlan.getState().updateFrame(id, { label: e.target.value })}
+        className="bp-input mt-1 text-[14px]"
+      />
+      <div className="bp-label mt-4">Inside ({members.length})</div>
+      {members.length ? (
+        <ul className="mt-1 space-y-0.5">
+          {members.map((n) => (
+            <li key={n.id}>
+              <button
+                onClick={() => usePlan.getState().focus(n.id, window.innerWidth, window.innerHeight)}
+                className="flex w-full items-center gap-1.5 text-left text-[12px] text-[var(--ink-dim)] hover:text-[var(--ink)]"
+              >
+                <span className={`bp-${n.kind} bp-accent`}><Symbol kind={n.kind} size={11} /></span>
+                <span className="bp-mono text-[10px]">{n.ref}</span>
+                <span className="truncate">{n.title}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-1 text-[11px] text-[var(--ink-faint)]">Empty. Drag cards into it.</p>
+      )}
+      <p className="mt-3 text-[11px] leading-relaxed text-[var(--ink-faint)]">
+        A card belongs to a frame when its middle is inside. Drag the label to move the frame with its cards; drag the corner to resize.
+      </p>
+      <div className="mt-3 grid grid-cols-2 gap-1.5">
+        <button
+          disabled={!members.length}
+          onClick={() => usePlan.getState().refitFrames({ [id]: members.map((m) => m.id) })}
+          className="bp-btn"
+        >
+          Fit to cards
+        </button>
+        <button onClick={() => deleteWithUndo({ type: "frame", id })} className="bp-btn bp-btn-danger">Remove frame</button>
+      </div>
+      </fieldset>
     </aside>
   );
 }

@@ -1,8 +1,9 @@
 /**
  * Weighing what you believe. Transparent arithmetic, no magic: every card that
- * supports or contradicts another adds its own confidence to that side.
+ * supports or contradicts another adds its own confidence to that side, scaled
+ * by the link's strength (weak ×0.5, normal ×1, strong ×1.5).
  */
-import { BELIEF_KINDS, DEFAULT_CONFIDENCE, type Edge, type Kind, type PlanNode } from "./types";
+import { BELIEF_KINDS, DEFAULT_CONFIDENCE, STRENGTH, type Edge, type Kind, type PlanNode } from "./types";
 
 type Nodes = Record<string, PlanNode>;
 type Edges = Record<string, Edge>;
@@ -30,23 +31,24 @@ const sourceKey = (n: PlanNode) => n.source?.trim().toLowerCase() || `#${n.id}`;
  * Sum one side, counting each source once (at its strongest card), so the same
  * rumor repeated on three cards doesn't look like three independent reasons.
  */
-function side(cards: PlanNode[]): { w: number; echoes: number } {
+function side(entries: { n: PlanNode; mult: number }[]): { w: number; echoes: number } {
   const best = new Map<string, number>();
-  for (const n of cards) best.set(sourceKey(n), Math.max(best.get(sourceKey(n)) ?? 0, weight(n)));
+  for (const { n, mult } of entries) best.set(sourceKey(n), Math.max(best.get(sourceKey(n)) ?? 0, weight(n) * mult));
   let w = 0;
   for (const v of best.values()) w += v;
-  return { w, echoes: cards.length - best.size };
+  return { w: Math.round(w), echoes: entries.length - best.size };
 }
 
 export function balance(id: string, nodes: Nodes, edges: Edges): Balance {
-  const pro: PlanNode[] = [];
-  const con: PlanNode[] = [];
+  const pro: { n: PlanNode; mult: number }[] = [];
+  const con: { n: PlanNode; mult: number }[] = [];
   for (const e of Object.values(edges)) {
-    if (e.rel === "supports" && e.to === id && nodes[e.from]) pro.push(nodes[e.from]);
+    const mult = STRENGTH[e.strength ?? "normal"].mult;
+    if (e.rel === "supports" && e.to === id && nodes[e.from]) pro.push({ n: nodes[e.from], mult });
     // Contradiction is mutual: whichever end you're looking from, the other end weighs against.
     if (e.rel === "contradicts") {
-      if (e.to === id && nodes[e.from]) con.push(nodes[e.from]);
-      else if (e.from === id && nodes[e.to]) con.push(nodes[e.to]);
+      if (e.to === id && nodes[e.from]) con.push({ n: nodes[e.from], mult });
+      else if (e.from === id && nodes[e.to]) con.push({ n: nodes[e.to], mult });
     }
   }
   const f = side(pro);
@@ -54,8 +56,8 @@ export function balance(id: string, nodes: Nodes, edges: Edges): Balance {
   return {
     forW: f.w,
     againstW: a.w,
-    pro,
-    con,
+    pro: pro.map((x) => x.n),
+    con: con.map((x) => x.n),
     score: f.w + a.w ? f.w / (f.w + a.w) : null,
     echoes: f.echoes + a.echoes,
   };
