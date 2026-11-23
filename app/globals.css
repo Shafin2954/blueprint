@@ -1,0 +1,297 @@
+@import "tailwindcss";
+
+/* Blueprint paper. The sheet is always blue: it's the medium, not a theme. */
+:root {
+  --paper: #0b335f;
+  --paper-deep: #072445;
+  --grid-minor: rgba(196, 222, 255, 0.07);
+  --grid-major: rgba(196, 222, 255, 0.16);
+  --panel: rgba(7, 33, 63, 0.86);
+  --card: rgba(10, 44, 82, 0.92);
+  --code: rgba(3, 20, 40, 0.55);
+  --hover: rgba(196, 222, 255, 0.07);
+  --line: rgba(196, 222, 255, 0.22);
+  --ink: #eef5ff;
+  --ink-dim: rgba(220, 234, 255, 0.72);
+  --ink-faint: rgba(200, 222, 255, 0.45);
+  --spark: #ffd166;
+  --goal: #ffffff;
+  --milestone: #6ee7f9;
+  --step: #b9d7ff;
+  --snippet: #f5a8ff;
+  --risk: #ff9a76;
+  --ok: #7ef0b0;
+  --warn: #ff9a76;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html,
+body {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.bp-mono {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+.bp-paper {
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--grid-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+    linear-gradient(var(--grid-minor) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 40%, #0f3d70 0%, var(--paper) 55%, var(--paper-deep) 100%);
+}
+
+.bp-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 10px 30px rgba(0, 10, 25, 0.35);
+}
+
+.bp-label {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.bp-input {
+  width: 100%;
+  background: var(--code);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 6px 8px;
+  color: var(--ink);
+  outline: none;
+}
+.bp-input:focus {
+  border-color: var(--milestone);
+}
+.bp-input option {
+  background: var(--paper-deep);
+}
+
+.bp-btn,
+.bp-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 2px;
+  font-size: 12px;
+  color: var(--ink-dim);
+  padding: 5px 10px;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.bp-btn {
+  border: 1px solid var(--line);
+}
+.bp-btn:hover,
+.bp-tool:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+.bp-btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.bp-btn-primary {
+  border-color: var(--milestone);
+  color: var(--milestone);
+}
+.bp-btn-danger:hover {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.bp-btn:focus-visible,
+.bp-tool:focus-visible {
+  outline: 2px solid var(--milestone);
+  outline-offset: 1px;
+}
+
+/* Kind accents */
+.bp-spark { --accent: var(--spark); }
+.bp-goal { --accent: var(--goal); }
+.bp-milestone { --accent: var(--milestone); }
+.bp-step { --accent: var(--step); }
+.bp-snippet { --accent: var(--snippet); }
+.bp-risk { --accent: var(--risk); }
+.bp-accent { color: var(--accent, var(--ink)); display: inline-flex; }
+
+/* Cards: drafting conventions per kind */
+.bp-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  box-shadow: 0 6px 18px rgba(0, 10, 25, 0.3);
+  transition: box-shadow 0.15s, opacity 0.2s, border-color 0.15s;
+}
+.bp-card::before {
+  /* accent tick on the left edge */
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 10px;
+  width: 3px;
+  height: 24px;
+  background: var(--accent);
+}
+.bp-card.bp-spark {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--spark) 55%, transparent);
+}
+.bp-card.bp-goal {
+  border: 3px double rgba(255, 255, 255, 0.75);
+}
+.bp-card.bp-milestone {
+  border-color: color-mix(in srgb, var(--milestone) 55%, transparent);
+}
+.bp-card.bp-risk {
+  border-color: color-mix(in srgb, var(--risk) 50%, transparent);
+}
+.bp-card.bp-snippet {
+  border-color: color-mix(in srgb, var(--snippet) 40%, transparent);
+}
+.bp-card.bp-done h3 {
+  text-decoration: line-through;
+  text-decoration-color: var(--ok);
+  color: var(--ink-dim);
+}
+.bp-card.bp-done::before {
+  background: var(--ok);
+}
+.bp-selected {
+  border-color: var(--spark) !important;
+  box-shadow: 0 0 0 1px var(--spark), 0 10px 26px rgba(0, 10, 25, 0.45);
+}
+
+.bp-status-todo { border-color: var(--line); color: var(--ink-faint); }
+.bp-status-doing { border-color: var(--spark); color: var(--spark); }
+.bp-status-done { border-color: var(--ok); color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+
+/* Ports */
+.bp-port {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  margin-top: -5.5px;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink-dim);
+  background: var(--paper);
+}
+.bp-port-in { left: -6px; pointer-events: none; }
+.bp-port-out {
+  right: -6px;
+  cursor: crosshair;
+  transition: transform 0.12s, background 0.12s;
+}
+.bp-port-out::after {
+  /* bigger hit area */
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+.bp-port-out:hover {
+  transform: scale(1.35);
+  background: var(--milestone);
+  border-color: var(--milestone);
+}
+
+/* Edges (color drives stroke via currentColor) */
+.bp-edge-ink { color: rgba(214, 232, 255, 0.55); }
+.bp-edge-lit { color: #ffffff; }
+.bp-edge-sel { color: var(--spark); }
+
+/* Reasoning kinds */
+:root {
+  --thought: #c9d8ec;
+  --assumption: #ffb86b;
+  --question: #a9b8ff;
+  --sup: #9fe3c0;
+}
+.bp-thought { --accent: var(--thought); }
+.bp-assumption { --accent: var(--assumption); }
+.bp-question { --accent: var(--question); }
+.bp-card.bp-thought {
+  border-radius: 10px;
+  background: rgba(14, 50, 92, 0.82);
+}
+.bp-card.bp-thought::before { display: none; }
+.bp-card.bp-assumption {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--assumption) 60%, transparent);
+}
+.bp-card.bp-question {
+  border-color: color-mix(in srgb, var(--question) 55%, transparent);
+}
+
+/* Relation edges */
+.bp-edge-sup { color: color-mix(in srgb, var(--sup) 80%, transparent); }
+.bp-edge-contra { color: var(--warn); }
+.bp-rel-feeds.bp-rel-active { border-color: var(--ink); color: var(--ink); }
+.bp-rel-supports.bp-rel-active { border-color: var(--sup); color: var(--sup); }
+.bp-rel-contradicts.bp-rel-active { border-color: var(--warn); color: var(--warn); }
+
+/* Plot-hole flags */
+.bp-flag { border-color: var(--line); }
+.bp-flag > div:first-child > span:first-child { color: var(--ink-faint); }
+.bp-flag-hole { border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
+.bp-flag-hole > div:first-child > span:first-child { color: var(--warn); }
+.bp-flag-gap { border-color: color-mix(in srgb, var(--spark) 40%, transparent); }
+.bp-flag-gap > div:first-child > span:first-child { color: var(--spark); }
+.bp-flagdot {
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  font: 700 10px/1 var(--font-geist-mono), monospace;
+  color: var(--paper-deep);
+}
+.bp-flagdot.bp-flag-hole { background: var(--warn); }
+.bp-flagdot.bp-flag-gap { background: var(--spark); }
+
+/* Reasoning: evidence, claims, conclusions */
+:root {
+  --evidence: #7fe0ff;
+  --claim: #e6d3ff;
+  --conclusion: #ffe9a8;
+}
+.bp-evidence { --accent: var(--evidence); }
+.bp-claim { --accent: var(--claim); }
+.bp-conclusion { --accent: var(--conclusion); }
+.bp-card.bp-evidence { border-color: color-mix(in srgb, var(--evidence) 45%, transparent); }
+.bp-card.bp-claim { border-color: color-mix(in srgb, var(--claim) 45%, transparent); }
+.bp-card.bp-conclusion {
+  border: 2px solid color-mix(in srgb, var(--conclusion) 70%, transparent);
+}
+.bp-gathered {
+  outline: 2px dashed var(--spark);
+  outline-offset: 5px;
+}
+.bp-range { accent-color: var(--spark); }
+.bp-demo { background: var(--code); }
+.bp-demo-chip {
+  background: var(--card);
+  border-color: color-mix(in srgb, var(--accent, var(--line)) 45%, transparent);
+}
+.bp-noscrollbar { scrollbar-width: none; }
+.bp-noscrollbar::-webkit-scrollbar { display: none; }
+
+/* Bigger link ports where the pointer is a finger. */
+@media (pointer: coarse) {
+  .bp-port { width: 16px; height: 16px; margin-top: -8px; }
+  .bp-port-in { left: -9px; }
+  .bp-port-out { right: -9px; }
+  .bp-port-out::after { inset: -14px; }
+}
