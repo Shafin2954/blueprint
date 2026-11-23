@@ -127,14 +127,15 @@ function HolesTab({ flags }: { flags: Flag[] }) {
                   }
                   title="What does this mean?"
                   aria-label={`Explain: ${f.title}`}
-                  className="bp-mono ml-auto grid h-4 w-4 place-items-center rounded-full border border-[var(--line)] text-[9px] text-[var(--ink-faint)] hover:text-[var(--ink)]"
+                  className="bp-hit bp-mono ml-auto grid h-4 w-4 place-items-center rounded-full border border-[var(--line)] text-[9px] text-[var(--ink-faint)] hover:text-[var(--ink)]"
                 >
                   ?
                 </button>
                 {!readOnly && <button
                   onClick={() => dismiss(f.key)}
                   title="Dismiss — I've thought about this"
-                  className="text-[11px] text-[var(--ink-faint)] hover:text-[var(--ink)]"
+                  aria-label={`Dismiss: ${f.title}`}
+                  className="bp-hit text-[11px] text-[var(--ink-faint)] hover:text-[var(--ink)]"
                 >
                   ✕
                 </button>}
@@ -200,6 +201,10 @@ function Questions() {
   }
   return (
     <ul className="space-y-3">
+      <li className="text-[11px] leading-relaxed text-[var(--ink-faint)]">
+        Ranked by the evidence linked to each answer (green for, red against) — not by how sure you said you are.
+        When the two disagree, look closer.
+      </li>
       {qs.map(({ q, answers }) => (
         <li key={q.id}>
           <button onClick={() => focusOn(q.id)} className="block text-left text-[12px] font-medium text-[var(--ink)] hover:underline">
@@ -217,8 +222,8 @@ function Questions() {
                   </span>
                   <span className="mt-1 flex items-center gap-2">
                     <Meter score={b.score} />
-                    <span className="bp-mono shrink-0 text-[9px] text-[var(--ink-faint)]">
-                      +{Math.round(b.forW)} / −{Math.round(b.againstW)}
+                    <span className="bp-mono shrink-0 text-[9px] text-[var(--ink-faint)]" title={`Evidence weight: ${Math.round(b.forW)} for, ${Math.round(b.againstW)} against`}>
+                      {b.score === null ? "no evidence" : `${Math.round(b.score * 100)}% for`}
                     </span>
                   </span>
                 </button>
@@ -313,7 +318,25 @@ export default function Sidebar() {
   const [tab, setTab] = useState<Tab>(() =>
     Object.values(usePlan.getState().nodes).some((n) => n.kind === "step") ? "next" : "holes",
   );
-  const [open, setOpen] = useState(() => window.innerWidth >= 900);
+  const [open, setOpenState] = useState(() => {
+    try {
+      const saved = localStorage.getItem("blueprint-sidebar-open");
+      if (saved !== null) return saved === "1";
+    } catch {}
+    return window.innerWidth >= 900;
+  });
+  const setOpen = (v: boolean) => {
+    setOpenState(v);
+    try {
+      localStorage.setItem("blueprint-sidebar-open", v ? "1" : "0");
+    } catch {}
+  };
+  useEffect(() => {
+    // Phones: opening a card folds the panel (not remembered — it's about room, not preference).
+    const fold = () => setOpenState(false);
+    window.addEventListener("blueprint-sidebar-fold", fold);
+    return () => window.removeEventListener("blueprint-sidebar-fold", fold);
+  }, []);
   // The tour (and anything else) can ask for a tab: dispatch "blueprint-tab" with "next" | "holes" | "picture".
   useEffect(() => {
     const on = (e: Event) => {

@@ -51,7 +51,7 @@ export const HELP: HelpEntry[] = [
   {
     id: "question", group: "Cards", kind: "question", title: "Question",
     summary: "Something you don't know yet.",
-    body: "Link possible answers (claims) into a question and the Big picture tab ranks them by the weight of evidence behind each. A question with no links and no notes gets flagged as open.",
+    body: "Link possible answers (claims) into a question — those links read “answers”. The Big picture tab then ranks the answers by the evidence behind each (shown as “% for”), next to how sure you said you are. A question with no links and no notes gets flagged as open.",
     demo: [
       [c("claim", "The dog took it", { sure: 80 }), "supports", c("question", "Who took the cake?")],
       [c("claim", "My brother took it", { sure: 40 }), "supports", c("question", "Who took the cake?")],
@@ -305,7 +305,7 @@ export const HELP: HelpEntry[] = [
   {
     id: "keyboard", group: "Tools", title: "Keyboard only",
     summary: "Arrows move between cards; Enter edits; L links; N adds the next card.",
-    body: "Arrow keys select the nearest card in that direction (from the middle of the screen if nothing is selected). Shift+arrows nudge the selected card. Enter edits its title. L starts a link: choose the target with arrows and press Enter. N adds the natural next card, already linked (evidence → claim → conclusion). Space gathers, C combines the gathered cards into a conclusion, F frames, T cycles a step's status, Delete removes, Esc deselects. Screen readers announce the selected card.",
+    body: "Tab to the sheet (or click empty paper), then arrow keys select the nearest card in that direction (from the middle of the screen if nothing is selected). Shift+arrows nudge the selected card. Enter edits its title. L starts a link: choose the target with arrows and press Enter. N adds the natural next card, already linked (evidence → claim → conclusion). Space gathers, C combines the gathered cards into a conclusion, F frames, T cycles a step's status, Delete removes, Esc deselects. Screen readers announce the selected card.",
     keywords: "keyboard accessibility arrows shortcuts screen reader a11y navigate",
   },
   {

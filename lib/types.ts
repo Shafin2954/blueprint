@@ -64,6 +64,12 @@ export const STRENGTH: Record<Strength, { mult: number; label: string; adverb: s
   strong: { mult: 1.5, label: "Strong", adverb: "strongly" },
 };
 
+/** "supports" into a question reads as "answers": that's what the link means there. */
+export function relVerb(rel: Rel | undefined, toKind?: Kind): string {
+  if ((rel ?? "feeds") === "supports" && toKind === "question") return "answers";
+  return REL_META[rel ?? "feeds"].verb;
+}
+
 export const REL_META: Record<Rel, { label: string; verb: string }> = {
   feeds: { label: "Feeds", verb: "feeds into" },
   supports: { label: "Supports", verb: "supports" },

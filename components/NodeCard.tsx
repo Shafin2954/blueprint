@@ -119,7 +119,8 @@ function Ring({ done, total }: { done: number; total: number }) {
   );
 }
 
-const WEIGHED = new Set<Kind>(["claim", "conclusion", "assumption", "question"]);
+// Questions aren't weighed: the answers linked to them are (see Big picture).
+const WEIGHED = new Set<Kind>(["claim", "conclusion", "assumption"]);
 
 function NodeCard({
   node,

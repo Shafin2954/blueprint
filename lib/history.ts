@@ -74,6 +74,7 @@ function apply(s: Snapshot) {
 export function undo() {
   const prev = past.pop();
   if (!prev) return false;
+  window.dispatchEvent(new CustomEvent("blueprint-undid"));
   future.push(snap(usePlan.getState()));
   apply(prev);
   emit();
@@ -83,6 +84,7 @@ export function undo() {
 export function redo() {
   const next = future.pop();
   if (!next) return false;
+  window.dispatchEvent(new CustomEvent("blueprint-undid"));
   past.push(snap(usePlan.getState()));
   apply(next);
   emit();

@@ -8,7 +8,7 @@ import type { Severity } from "@/lib/holes";
 import { ANCHOR_Y, NODE_W, STRENGTH, type PlanNode } from "@/lib/types";
 import { saveImage, isUrl } from "@/lib/image";
 import NodeCard from "./NodeCard";
-import { NEXT_KIND } from "@/lib/keyboard";
+import { NEXT_KIND, nearestTo } from "@/lib/keyboard";
 import { MIN_FRAME, membersOf } from "@/lib/frames";
 import type { Frame } from "@/lib/types";
 
@@ -169,6 +169,10 @@ export default function Board() {
       else if (to !== from) flash("Those are already linked, or the link would loop back on itself.");
       return;
     } else if (card && e.shiftKey) {
+      // Starting a gathering from a selected card: it's part of it too.
+      const st = usePlan.getState();
+      const sel = st.selection?.type === "node" ? st.selection.id : null;
+      if (!st.gathered.length && sel && sel !== card.dataset.nodeId) gather(sel);
       gather(card.dataset.nodeId!);
       return;
     } else if (card) {
@@ -334,7 +338,19 @@ export default function Board() {
   return (
     <div
       ref={ref}
-      className="bp-paper absolute inset-0 touch-none select-none overflow-hidden"
+      className="bp-paper absolute inset-0 touch-none select-none overflow-hidden outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--milestone)]"
+      tabIndex={0}
+      role="application"
+      aria-label="Sheet. Arrow keys move between cards, Enter edits, L links, N adds the next card. Press ? for all keys."
+      onFocus={(e) => {
+        // Tabbing in from the keyboard: start on the card nearest the middle.
+        if (e.target !== e.currentTarget || !e.currentTarget.matches(":focus-visible")) return;
+        const st = usePlan.getState();
+        if (st.selection) return;
+        const v = st.view;
+        const n = nearestTo((window.innerWidth / 2 - v.x) / v.k, (window.innerHeight / 2 - v.y) / v.k, st.nodes);
+        if (n) st.select({ type: "node", id: n.id });
+      }}
       style={{
         backgroundSize: `${major}px ${major}px, ${major}px ${major}px, ${grid}px ${grid}px, ${grid}px ${grid}px, 100% 100%`,
         backgroundPosition: `${view.x}px ${view.y}px, ${view.x}px ${view.y}px, ${view.x}px ${view.y}px, ${view.x}px ${view.y}px, 0 0`,

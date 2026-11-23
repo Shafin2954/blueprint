@@ -2,29 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { usePlan } from "@/lib/store";
-import { KIND_META, type PlanNode } from "@/lib/types";
+import { type PlanNode } from "@/lib/types";
+import { findCards } from "@/lib/find";
 import { Symbol } from "./NodeCard";
-
-export function findCards(nodes: Record<string, PlanNode>, q: string): PlanNode[] {
-  const list = Object.values(nodes);
-  const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
-  if (!terms.length) return list.sort((a, b) => b.createdAt - a.createdAt).slice(0, 12);
-  return list
-    .map((n) => {
-      const title = n.title.toLowerCase();
-      const hay = `${title} ${n.body} ${n.ref} ${n.source ?? ""} ${KIND_META[n.kind].label}`.toLowerCase();
-      // Forgiving about word endings: "salary" finds "salaries", "assume" finds "assumption".
-      const hit = (t: string) => hay.includes(t) || (t.length >= 5 && hay.includes(t.slice(0, -1))) || (t.length >= 7 && hay.includes(t.slice(0, -2)));
-      if (!terms.every(hit)) return null;
-      // Title and ref hits first, then anything else.
-      const score = terms.reduce((s, t) => s + (title.includes(t) ? 3 : 0) + (n.ref.toLowerCase() === t ? 5 : 0) + 1, 0);
-      return { n, score };
-    })
-    .filter((x): x is { n: PlanNode; score: number } => x !== null)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 30)
-    .map((x) => x.n);
-}
 
 function snippet(text: string, q: string) {
   const t = q.toLowerCase().split(/\s+/).find(Boolean);

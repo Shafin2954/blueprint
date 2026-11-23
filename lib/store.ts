@@ -406,6 +406,7 @@ export const usePlan = create<PlanState>()(
         });
         plan.forEach((p, i) => get().connect(ids[i], p.feeds === -1 ? id : ids[p.feeds]));
         set({ selection: { type: "node", id: ids[0] } });
+        get().reveal(ids[0]);
       },
 
       splitStep: (id) => {
@@ -507,7 +508,9 @@ export const usePlan = create<PlanState>()(
         const bottom = 60;
         const aw = Math.max(200, w - padLeft - padRight - 40);
         const ah = Math.max(200, h - top - bottom);
-        const k = Math.min(1, Math.max(0.3, Math.min(aw / (maxX - minX), ah / (maxY - minY))));
+        // On phones, never zoom out so far that card text is unreadable; pan instead.
+        const minK = w < 768 ? 0.55 : 0.3;
+        const k = Math.min(1, Math.max(minK, Math.min(aw / (maxX - minX), ah / (maxY - minY))));
         set({
           view: {
             k,

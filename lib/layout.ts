@@ -166,6 +166,8 @@ export function findFreeSpot(nodes: Nodes, x: number, y: number): { x: number; y
   const sx = snap(x);
   const sy = snap(y);
   if (free(sx, sy)) return { x: sx, y: sy };
+  // Straight down first: new cards form a readable column instead of a row that links cut through.
+  for (let i = 1; i <= 6; i++) if (free(sx, snap(sy + i * H))) return { x: sx, y: snap(sy + i * H) };
   for (let r = 1; r <= 12; r++) {
     const ring: [number, number][] = [];
     for (let i = -r; i <= r; i++) ring.push([r, i], [i, r], [-r, i], [i, -r]);

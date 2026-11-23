@@ -5,7 +5,7 @@
 import { findHoles } from "./holes";
 import { membersOf } from "./frames";
 import { balance, weight } from "./reason";
-import { BELIEF_KINDS, KIND_META, KINDS, REL_META, STRENGTH, type Edge, type Frame, type PlanNode } from "./types";
+import { BELIEF_KINDS, KIND_META, KINDS, STRENGTH, type Edge, type Frame, type PlanNode, relVerb } from "./types";
 
 type Nodes = Record<string, PlanNode>;
 type Edges = Record<string, Edge>;
@@ -80,7 +80,7 @@ export function boardToMarkdown(project: string, nodes: Nodes, edges: Edges, wit
       const a = nodes[e.from];
       const b = nodes[e.to];
       const how = e.rel && e.rel !== "feeds" ? STRENGTH[e.strength ?? "normal"].adverb : "";
-      out.push(`- ${a.ref} **${how ? `${how} ` : ""}${REL_META[e.rel ?? "feeds"].verb}** ${b.ref}  _(${a.title} → ${b.title})_`);
+      out.push(`- ${a.ref} **${how ? `${how} ` : ""}${relVerb(e.rel, b.kind)}** ${b.ref}  _(${a.title} → ${b.title})_`);
     }
     out.push("");
   }

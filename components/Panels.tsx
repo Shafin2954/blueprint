@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePlan, useReadOnly } from "@/lib/store";
 import { generate, type Draft, type GenMode } from "@/lib/generate";
 import { boardToMarkdown } from "@/lib/exportMd";
 import { encodeSheet, shareUrl } from "@/lib/shareLink";
 import { deleteWithUndo } from "@/lib/history";
 import { membersOf } from "@/lib/frames";
-import { KIND_META, REL_META, STRENGTH, type Rel, type Strength } from "@/lib/types";
+import { KIND_META, REL_META, STRENGTH, relVerb, type Rel, type Strength } from "@/lib/types";
 import { Symbol } from "./NodeCard";
 
 export const viewCenter = () => {
@@ -270,13 +270,17 @@ export function EdgePanel({ id }: { id: string }) {
   const nodes = usePlan((s) => s.nodes);
   const { setRel, setStrength } = usePlan.getState();
   const fresh = usePlan((s) => s.freshEdge === id);
+  const panelRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (fresh) panelRef.current?.querySelector<HTMLButtonElement>(".bp-rel-active")?.focus();
+  }, [fresh]);
   const [err, setErr] = useState(false);
   if (!edge) return null;
   const a = nodes[edge.from];
   const b = nodes[edge.to];
   const rel = edge.rel ?? "feeds";
   return (
-    <aside className="bp-panel pointer-events-auto ml-auto w-[300px] max-w-[calc(100vw-32px)] p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto">
+    <aside ref={panelRef} className="bp-panel pointer-events-auto ml-auto w-[300px] max-w-[calc(100vw-32px)] p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto">
       <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
       <div className="flex items-center">
         <div className="bp-label">{fresh ? "New link — what does it mean?" : "Link"}</div>
@@ -286,7 +290,7 @@ export function EdgePanel({ id }: { id: string }) {
       </div>
       <p className="mt-1 text-[13px] leading-snug text-[var(--ink)]">
         <span className="bp-mono text-[11px] text-[var(--ink-dim)]">{a?.ref}</span> {a?.title}
-        <span className="block py-1 text-[11px] text-[var(--spark)]">{REL_META[rel].verb} ↓</span>
+        <span className="block py-1 text-[11px] text-[var(--spark)]">{relVerb(rel, b?.kind)} ↓</span>
         <span className="bp-mono text-[11px] text-[var(--ink-dim)]">{b?.ref}</span> {b?.title}
       </p>
       <div className="mt-3 grid grid-cols-3 gap-1">

@@ -5,7 +5,7 @@ import { saveImage, isUrl } from "@/lib/image";
 import { useImageSrc } from "@/lib/images";
 import { deleteWithUndo } from "@/lib/history";
 import { usePlan, useReadOnly } from "@/lib/store";
-import { BELIEF_KINDS, DEFAULT_CONFIDENCE, KIND_META, KINDS, REL_META, type Kind, type Status } from "@/lib/types";
+import { BELIEF_KINDS, DEFAULT_CONFIDENCE, KIND_META, KINDS, REL_META, relVerb, type Kind, type Status } from "@/lib/types";
 import { Symbol } from "./NodeCard";
 
 export default function Inspector({ id, onGenerate }: { id: string; onGenerate: () => void }) {
@@ -67,7 +67,7 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
                   <span className="bp-mono whitespace-nowrap text-[10px]">{n.ref}</span>
                   {e.rel && e.rel !== "feeds" && (
                     <span className={`bp-mono text-[9px] uppercase ${e.rel === "contradicts" ? "text-[var(--warn)]" : "text-[var(--sup)]"}`}>
-                      {REL_META[e.rel].label}
+                      {relVerb(e.rel, nodes[e.to]?.kind) === "answers" ? "Answers" : REL_META[e.rel].label}
                     </span>
                   )}
                   <span className="truncate">{n.title}</span>
@@ -107,6 +107,7 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
       <textarea
         ref={titleRef}
         value={node.title}
+        onFocus={(e) => /^\[.*\]$/.test(e.target.value) && e.target.select()}
         rows={2}
         onChange={(e) => updateNode(id, { title: e.target.value })}
         onKeyDown={(e) => {
