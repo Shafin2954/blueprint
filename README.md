@@ -1,5 +1,7 @@
 # Blueprint
 
+**Live:** https://shafin2954.github.io/blueprint/
+
 ![Blueprint](public/screenshot.png)
 
 An idea-to-action planner drawn on blueprint paper. Ideas go in on the left, goals sit on the right, and the plan always tells you the next small move.
@@ -70,3 +72,7 @@ It's a fully static site (no server, no API keys), so any static host works.
 **GitHub Pages:** push to a **public** repo's `main` branch, then in *Settings → Pages* set **Source: GitHub Actions**. The included workflow (`.github/workflows/pages.yml`) tests, builds with the right base path, and publishes to `https://<user>.github.io/<repo>/` on every push.
 
 **Netlify / Vercel / Cloudflare Pages:** build command `npm run build`, publish directory `out` (see `netlify.toml`).
+
+## License
+
+MIT — see [LICENSE](LICENSE).
