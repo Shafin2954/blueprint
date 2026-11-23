@@ -27,6 +27,30 @@ describe("share links", () => {
     expect((await encodeSheet({ ...sh, frames: {} })).length).toBeLessThan(2500);
   });
 
+  it("treats a link as untrusted: bad kinds, remote images and dangling links are cleaned", async () => {
+    const evil = {
+      project: "x",
+      nodes: {
+        a: { kind: "nope", title: 42, x: "1", image: "https://tracker.example/p.png", link: "javascript:alert(1)" },
+        b: { kind: "claim", title: "ok", confidence: 900 },
+      },
+      edges: { e1: { from: "a", to: "b", rel: "supports" }, e2: { from: "a", to: "ghost" } },
+      frames: { f: { x: "?", label: 7 } },
+    };
+    const bytes = new TextEncoder().encode(JSON.stringify(evil));
+    const packed = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer());
+    const code = Buffer.from(packed).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const d = await decodeSheet(code);
+    expect(d.nodes.a.kind).toBe("thought");
+    expect(d.nodes.a.title).toBe("Untitled");
+    expect(d.nodes.a.image).toBeUndefined();
+    expect(d.nodes.a.imageOmitted).toBe(true);
+    expect(d.nodes.a.link).toBeUndefined();
+    expect(d.nodes.b.confidence).toBe(100);
+    expect(Object.keys(d.edges)).toEqual(["e1"]);
+    expect(d.frames.f.label).toBe("Group");
+  });
+
   it("rejects garbage", async () => {
     await expect(decodeSheet("not-a-real-code")).rejects.toThrow();
   });

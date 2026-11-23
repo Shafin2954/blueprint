@@ -10,9 +10,9 @@ import { membersOf } from "@/lib/frames";
 import { NEXT_KIND, describe as describeCard, nearestInDirection, nearestTo, type Dir } from "@/lib/keyboard";
 import { weight } from "@/lib/reason";
 import { BELIEF_KINDS } from "@/lib/types";
-import { enterViewer, exitViewer, keepSharedCopy, maintainImages, newSheet, startSheets } from "@/lib/sheets";
+import { enterViewer, exitViewer, internOpenSheet, keepSharedCopy, maintainImages, newSheet, startSheets } from "@/lib/sheets";
 import { decodeSheet, shareCodeFromHash } from "@/lib/shareLink";
-import { embedImages, internImages } from "@/lib/images";
+import { embedImages } from "@/lib/images";
 import { Sheets } from "./Sheets";
 import { Find } from "./Find";
 import Board from "./Board";
@@ -70,6 +70,7 @@ function Pipeline() {
 }
 
 function TitleBlock({ onSheets }: { onSheets: () => void }) {
+  const readOnly = useReadOnly();
   const project = usePlan((s) => s.project);
   const setProject = usePlan((s) => s.setProject);
   const k = usePlan((s) => s.view.k);
@@ -80,12 +81,16 @@ function TitleBlock({ onSheets }: { onSheets: () => void }) {
       <div className="border-b border-[var(--line)] px-3 py-2">
         <div className="flex items-center text-[9px] text-[var(--ink-faint)]">
           Sheet
-          <button onClick={onSheets} className="ml-auto normal-case tracking-normal text-[var(--milestone)] hover:underline">
-            all sheets ›
-          </button>
+          {!readOnly && (
+            <button onClick={onSheets} className="ml-auto normal-case tracking-normal text-[var(--milestone)] hover:underline">
+              all sheets ›
+            </button>
+          )}
         </div>
         <input
           value={project}
+          readOnly={readOnly}
+          aria-label="Current sheet name"
           onChange={(e) => setProject(e.target.value)}
           className="w-full bg-transparent font-sans text-[14px] normal-case tracking-normal text-[var(--ink)] outline-none"
         />
@@ -202,7 +207,7 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
           checkpoint();
           // Remember who was in each frame, lay out, then shrink-wrap the frames again.
           const members = Object.fromEntries(Object.values(st.frames).map((f) => [f.id, membersOf(f, st.nodes)]));
-          st.setPositions(tidy(st.nodes, st.edges));
+          st.setPositions(tidy(st.nodes, st.edges, Object.values(members)));
           st.refitFrames(members);
           checkpoint();
           fitToScreen();
@@ -233,9 +238,8 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
             else if (newSheet({ project: d.project || f.name.replace(/\.blueprint\.json$|\.json$/, ""), nodes: d.nodes, edges: d.edges, frames: d.frames ?? {}, counters: d.counters ?? {} })) {
               fitToScreen();
               toast(`Imported “${d.project || f.name}” as a new sheet`);
-              // Move embedded images into the image store.
-              const moved = await internImages(usePlan.getState().nodes);
-              if (moved) usePlan.setState({ nodes: moved });
+              // Move embedded images into the image store (safe if the user keeps working).
+              internOpenSheet().catch(() => {});
             }
           } catch {
             toast("Couldn't read that file.");
@@ -435,7 +439,21 @@ export default function Planner() {
       // Offline + installable. Only in production builds: a dev-mode worker would cache stale code.
       if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
         const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-        navigator.serviceWorker.register(`${base}/sw.js`, { scope: `${base}/` }).catch(() => {});
+        navigator.serviceWorker
+          .register(`${base}/sw.js`, { scope: `${base}/` })
+          .then(() => navigator.serviceWorker.ready)
+          .then((reg) => {
+            // Hand over what this page already loaded, so it's cached for offline use.
+            const urls = [
+              location.href.split("#")[0],
+              ...performance
+                .getEntriesByType("resource")
+                .map((r) => r.name)
+                .filter((u) => u.startsWith(location.origin) && /\/_next\/static\/|\/icons\/|manifest/.test(u)),
+            ];
+            reg.active?.postMessage({ type: "precache", urls });
+          })
+          .catch(() => {});
       }
       // First thing on an empty sheet: offer a way in (examples, tour, templates).
       const code = shareCodeFromHash(location.hash);
@@ -457,6 +475,7 @@ export default function Planner() {
         return;
       }
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !inField) {
+        if (usePlan.getState().viewing) return;
         const k = e.key.toLowerCase();
         if (k === "z" && !e.shiftKey) {
           e.preventDefault();
@@ -476,6 +495,12 @@ export default function Planner() {
       const s = usePlan.getState();
       // Shared, read-only sheets: look around, but no changes.
       if (s.viewing && !(e.key.startsWith("Arrow") && !e.shiftKey) && !["Escape", "/", "?"].includes(e.key)) return;
+      // Enter/Space belong to a focused button or link; arrows belong to panels and overlays
+      // (scrolling, tabs). Only when focus is on the sheet itself do they drive the board.
+      const onControl = !!t.closest("button, a, summary, [role=button], [role=tab], [role=option], [role=switch]");
+      const inPanel = !!t.closest("aside, [data-overlay], [role=dialog], [role=listbox], [role=tablist]");
+      if ((e.key === "Enter" || e.key === " ") && onControl) return;
+      if (e.key.startsWith("Arrow") && inPanel) return;
       const toggle = (kind: Overlay) => setOverlay((o) => ({ kind: o.kind === kind ? null : kind, n: o.n + 1 }));
       const selNode = s.selection?.type === "node" ? s.nodes[s.selection.id] : undefined;
       const ARROWS: Record<string, Dir> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" };
@@ -585,7 +610,7 @@ export default function Planner() {
         <div className="flex min-h-0 flex-1 items-start gap-3">
           <Sidebar />
           {/* On phones, panels become full-width sheets instead of squeezing between columns. */}
-          <div className="flex flex-1 justify-center max-md:pointer-events-none max-md:fixed max-md:inset-x-2 max-md:top-16 max-md:bottom-2 max-md:z-20 max-md:items-start">
+          <div data-overlay className="flex flex-1 justify-center max-md:pointer-events-none max-md:fixed max-md:inset-x-2 max-md:top-16 max-md:bottom-2 max-md:z-20 max-md:items-start">
             {overlay.kind === "gen" && <Generator key={overlay.n} onClose={close} />}
             {overlay.kind === "dump" && <Dump key={overlay.n} onClose={close} />}
             {overlay.kind === "share" && <Share key={overlay.n} onClose={close} />}

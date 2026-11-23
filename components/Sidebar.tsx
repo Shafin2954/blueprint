@@ -40,6 +40,7 @@ export function runFix(a: FixAction) {
 }
 
 function NextTab() {
+  const readOnly = useReadOnly();
   const nodes = usePlan((s) => s.nodes);
   const edges = usePlan((s) => s.edges);
   const cycleStatus = usePlan((s) => s.cycleStatus);
@@ -59,6 +60,7 @@ function NextTab() {
           {moves.slice(0, 7).map((m, i) => (
             <li key={m.node.id} className="flex items-start gap-2 rounded-sm px-2 py-1.5 hover:bg-[var(--hover)]">
               <button
+                disabled={readOnly}
                 onClick={() => cycleStatus(m.node.id)}
                 title="Cycle status"
                 className={`bp-mono mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-[2px] border text-[9px] bp-status-${m.node.status}`}

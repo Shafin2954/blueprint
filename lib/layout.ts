@@ -27,7 +27,11 @@ export function estimateHeight(n: PlanNode): number {
   return h;
 }
 
-export function tidy(nodes: Nodes, edges: Edges): Positions {
+/**
+ * @param frameMembers cards grouped by frame: each frame's cards are laid out as their own
+ *   block (so a frame can be shrink-wrapped around exactly its cards afterwards).
+ */
+export function tidy(nodes: Nodes, edges: Edges, frameMembers: string[][] = []): Positions {
   const ids = Object.keys(nodes);
   if (!ids.length) return {};
   const valid = Object.values(edges).filter((e) => nodes[e.from] && nodes[e.to] && e.from !== e.to);
@@ -64,8 +68,15 @@ export function tidy(nodes: Nodes, edges: Edges): Positions {
     else if (onlyContra(e.from) && onlyContra(e.to)) layer.set(e.to, layer.get(e.from)! + 1);
   }
 
-  // Connected groups.
+  // Framed cards first: one block per frame (a card in two frames goes with the first).
   const seen = new Set<string>();
+  const framed: string[][] = [];
+  for (const members of frameMembers) {
+    const block = members.filter((id) => nodes[id] && !seen.has(id));
+    block.forEach((id) => seen.add(id));
+    if (block.length) framed.push(block);
+  }
+  // Then connected groups among the remaining cards (links into frames don't pull cards in).
   const groups: string[][] = [];
   const loose: string[] = [];
   for (const id of ids) {
@@ -77,12 +88,13 @@ export function tidy(nodes: Nodes, edges: Edges): Positions {
       if (seen.has(x)) continue;
       seen.add(x);
       g.push(x);
-      stack.push(...nb.get(x)!);
+      stack.push(...[...nb.get(x)!].filter((n) => !seen.has(n)));
     }
-    if (g.length === 1) loose.push(id);
+    if (g.length === 1 && ![...nb.get(id)!].length) loose.push(id);
     else groups.push(g);
   }
   groups.sort((a, b) => b.length - a.length);
+  groups.unshift(...framed);
 
   const pos: Positions = {};
   let top = 0;
@@ -90,7 +102,9 @@ export function tidy(nodes: Nodes, edges: Edges): Positions {
     const min = Math.min(...g.map((id) => layer.get(id)!));
     const cols: string[][] = [];
     for (const id of g) (cols[layer.get(id)! - min] ??= []).push(id);
-    const filled = cols.map((c) => c ?? []);
+    // Array.from (not .map) so gaps in a sparse array become real empty columns; then
+    // drop empty columns so a group never has a hole in the middle.
+    const filled = Array.from(cols, (c) => c ?? []).filter((c) => c.length);
     // Start from current vertical order, then reduce crossings.
     filled.forEach((c) => c.sort((a, b) => nodes[a].y - nodes[b].y));
     const order = new Map<string, number>();

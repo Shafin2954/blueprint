@@ -120,10 +120,18 @@ export async function embedImages(nodes: Record<string, PlanNode>): Promise<Reco
   return out;
 }
 
-/** Delete stored images that no card on any sheet refers to any more. */
-export async function collectGarbage(inUse: Set<string>) {
+/** Every stored image key, as references ("idb:…"). */
+export async function listStoredRefs(): Promise<string[]> {
   const keys = (await tx<IDBValidKey[]>("readonly", (s) => s.getAllKeys()).catch(() => [])) as string[];
-  const dead = keys.filter((k) => !inUse.has(PREFIX + k));
-  for (const k of dead) await tx("readwrite", (s) => s.delete(k)).catch(() => {});
+  return keys.map((k) => PREFIX + k);
+}
+
+/**
+ * Delete the given stored images unless still in use. Pass the list taken *before*
+ * working out what's in use, so anything stored in the meantime is never touched.
+ */
+export async function collectGarbage(candidates: string[], inUse: Set<string>) {
+  const dead = candidates.filter((r) => isStoredRef(r) && !inUse.has(r));
+  for (const r of dead) await tx("readwrite", (s) => s.delete(r.slice(PREFIX.length))).catch(() => {});
   return dead.length;
 }

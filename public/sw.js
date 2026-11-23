@@ -1,12 +1,30 @@
 // Blueprint service worker: makes the app open offline and install as an app.
 // Pages: network first (so updates arrive), falling back to the cached copy.
 // Hashed build assets and icons: cache first (they never change under the same URL).
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = `blueprint-${VERSION}`;
 const scope = new URL(self.registration.scope);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll([scope.pathname])).then(() => self.skipWaiting()));
+});
+
+// The page lists what it already loaded before this worker existed (its JS and CSS),
+// so a single online visit is enough for the app to open offline.
+self.addEventListener("message", (event) => {
+  const msg = event.data;
+  if (!msg || msg.type !== "precache" || !Array.isArray(msg.urls)) return;
+  const urls = msg.urls.filter((u) => {
+    try {
+      const url = new URL(u);
+      return url.origin === scope.origin && url.pathname.startsWith(scope.pathname);
+    } catch {
+      return false;
+    }
+  });
+  event.waitUntil(
+    caches.open(CACHE).then((c) => Promise.all(urls.map((u) => c.add(u).catch(() => {})))),
+  );
 });
 
 self.addEventListener("activate", (event) => {

@@ -72,7 +72,7 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
                   )}
                   <span className="truncate">{n.title}</span>
                 </button>
-                <button onClick={() => deleteWithUndo({ type: "edge", id: e.id })} title="Unlink" aria-label={`Unlink ${n.ref}`} className="ml-auto text-[var(--ink-faint)] opacity-0 hover:text-[var(--warn)] group-hover:opacity-100 focus:opacity-100 [@media(pointer:coarse)]:opacity-100">✕</button>
+                {!readOnly && <button onClick={() => deleteWithUndo({ type: "edge", id: e.id })} title="Unlink" aria-label={`Unlink ${n.ref}`} className="ml-auto text-[var(--ink-faint)] opacity-0 hover:text-[var(--warn)] group-hover:opacity-100 focus:opacity-100 [@media(pointer:coarse)]:opacity-100">✕</button>}
               </li>
             ) : null,
           )}
@@ -270,9 +270,9 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
         <button onClick={() => deleteWithUndo({ type: "node", id })} className="bp-btn bp-btn-danger">Delete</button>
       </div>
 
+      </fieldset>
       {linkList("Fed by", links.fedBy)}
       {linkList("Feeds into", links.feeds)}
-      </fieldset>
     </aside>
   );
 }

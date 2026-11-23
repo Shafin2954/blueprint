@@ -39,6 +39,33 @@ describe("tidy", () => {
     expect(p.lone.y).toBeGreaterThan(Math.max(p.a.y, p.b.y));
   });
 
+  it("keeps each frame's cards together and away from other cards", async () => {
+    const { fitAround } = await import("../frames");
+    // two unlinked framed cards that would otherwise land in different places
+    const b = board()
+      .card("s1", "thought", { x: 0, y: 0 }).card("s2", "thought", { x: 900, y: 600 })
+      .card("e", "evidence").card("c", "claim").link("e", "c", "supports")
+      .card("lone", "thought");
+    const p = tidy(b.nodes, b.edges, [["s1", "s2"]]);
+    const moved = Object.fromEntries(Object.entries(b.nodes).map(([id, n]) => [id, { ...n, ...p[id] }]));
+    const box = fitAround([moved.s1, moved.s2]);
+    for (const other of ["e", "c", "lone"]) {
+      const n = moved[other];
+      const cx = n.x + 116, cy = n.y + 40;
+      const inside = cx >= box.x && cx <= box.x + box.w && cy >= box.y && cy <= box.y + box.h;
+      expect(inside, other).toBe(false);
+    }
+  });
+
+  it("copes with gaps in depth (unlinked cards from different columns in one frame)", () => {
+    const b = board().card("a", "step").card("b", "step").card("c", "step").card("d", "goal")
+      .link("a", "b").link("b", "c").link("c", "d");
+    // a is depth 0, d is depth 3: framing just those two leaves empty columns in between
+    expect(() => tidy(b.nodes, b.edges, [["a", "d"]])).not.toThrow();
+    const p = tidy(b.nodes, b.edges, [["a", "d"]]);
+    expect(p.a.x).toBeLessThan(p.d.x);
+  });
+
   it("never stacks cards on top of each other", () => {
     for (const st of STARTERS) {
       const sh = st.build();

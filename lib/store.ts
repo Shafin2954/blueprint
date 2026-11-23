@@ -450,6 +450,7 @@ export const usePlan = create<PlanState>()(
           project: typeof d.project === "string" ? d.project : "Imported plan",
           nodes: d.nodes,
           edges: d.edges,
+          frames: (d as { frames?: Record<string, Frame> }).frames ?? {},
           counters: { ...ZERO, ...(d.counters ?? {}) },
           selection: null,
           gathered: [],

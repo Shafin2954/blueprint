@@ -345,6 +345,7 @@ export function FramePanel({ id }: { id: string }) {
         onChange={(e) => usePlan.getState().updateFrame(id, { label: e.target.value })}
         className="bp-input mt-1 text-[14px]"
       />
+      </fieldset>
       <div className="bp-label mt-4">Inside ({members.length})</div>
       {members.length ? (
         <ul className="mt-1 space-y-0.5">
@@ -367,6 +368,7 @@ export function FramePanel({ id }: { id: string }) {
       <p className="mt-3 text-[11px] leading-relaxed text-[var(--ink-faint)]">
         A card belongs to a frame when its middle is inside. Drag the label to move the frame with its cards; drag the corner to resize.
       </p>
+      <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
       <div className="mt-3 grid grid-cols-2 gap-1.5">
         <button
           disabled={!members.length}

@@ -152,3 +152,10 @@ export function deleteWithUndo(sel: { type: "node" | "edge" | "frame"; id: strin
   }
   checkpoint();
 }
+
+/** Image references held only by undo/redo history (so cleanup doesn't break Undo). */
+export function historyImageRefs(): string[] {
+  const out: string[] = [];
+  for (const snap of [...past, ...future]) for (const n of Object.values(snap.nodes)) if (n.image) out.push(n.image);
+  return out;
+}

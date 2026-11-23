@@ -9,8 +9,8 @@
  */
 import { useSyncExternalStore } from "react";
 import { usePlan } from "./store";
-import { loadWithoutHistory } from "./history";
-import { collectGarbage, internImages } from "./images";
+import { historyImageRefs, loadWithoutHistory } from "./history";
+import { collectGarbage, internImages, listStoredRefs } from "./images";
 import { KINDS, type Edge, type Frame, type Kind, type PlanNode, type View } from "./types";
 
 export interface SheetData {
@@ -101,6 +101,9 @@ export function startSheets() {
 /** Park the open sheet in its slot. Returns false if storage is full. */
 function park(): boolean {
   const s = usePlan.getState();
+  // A shared sheet being viewed isn't yours to keep: leaving it just drops it
+  // (your own sheet is already parked under viewing.returnTo).
+  if (s.viewing) return true;
   try {
     localStorage.setItem(slot(s.sheetId), JSON.stringify(currentData()));
     return true;
@@ -218,27 +221,36 @@ export function useSheets(): SheetMeta[] {
 }
 
 /**
+ * Move any inline (data:) images on the open sheet into the image store.
+ * Patches only image fields, only if the same sheet is still open, and never as an
+ * undo step — safe to run while the user keeps working.
+ */
+export async function internOpenSheet() {
+  const sheetId = usePlan.getState().sheetId;
+  const moved = await internImages(usePlan.getState().nodes);
+  if (!moved || usePlan.getState().sheetId !== sheetId) return;
+  loadWithoutHistory(() =>
+    usePlan.setState((s) => {
+      const nodes = { ...s.nodes };
+      for (const [id, n] of Object.entries(moved)) {
+        // Only replace an image that's still the same inline one we converted.
+        if (nodes[id] && nodes[id].image?.startsWith("data:") && n.image !== nodes[id].image) nodes[id] = { ...nodes[id], image: n.image };
+      }
+      return { nodes };
+    }),
+  );
+}
+
+/**
  * Housekeeping, run once after startup:
  * 1. move inline (data:) images on every sheet into the image store, shrinking the sheets;
- * 2. delete stored images that no sheet refers to any more.
+ * 2. delete stored images that nothing refers to any more.
  */
 export async function maintainImages() {
-  const refs = new Set<string>();
-  const note = (nodes: Record<string, PlanNode>) => Object.values(nodes).forEach((n) => n.image && refs.add(n.image));
+  // Snapshot the candidates first: anything stored after this line is never deleted.
+  const candidates = await listStoredRefs();
 
-  const cur = await internImages(usePlan.getState().nodes);
-  if (cur) {
-    // Patch only the image fields, in case the user edited something meanwhile.
-    loadWithoutHistory(() =>
-      usePlan.setState((s) => {
-        const nodes = { ...s.nodes };
-        for (const [id, n] of Object.entries(cur)) if (nodes[id] && n.image !== nodes[id].image) nodes[id] = { ...nodes[id], image: n.image };
-        return { nodes };
-      }),
-    );
-  }
-  note(usePlan.getState().nodes);
-
+  await internOpenSheet();
   for (const m of index) {
     if (m.id === usePlan.getState().sheetId) continue;
     const raw = localStorage.getItem(slot(m.id));
@@ -253,12 +265,22 @@ export async function maintainImages() {
         /* keep the old copy */
       }
     }
-    note(data.nodes);
   }
-  // Images referenced from undo history may also be in use; history is per session,
-  // so only clean up at startup, before anything can be undone.
-  note(usePlan.getState().nodes); // anything attached while we were busy
-  return collectGarbage(refs);
+
+  // Everything that could still show an image: every sheet (re-read now), and undo history.
+  const inUse = new Set<string>(historyImageRefs());
+  const note = (nodes: Record<string, PlanNode>) => Object.values(nodes).forEach((n) => n.image && inUse.add(n.image));
+  note(usePlan.getState().nodes);
+  for (const m of index) {
+    const raw = localStorage.getItem(slot(m.id));
+    if (raw) note((JSON.parse(raw) as SheetData).nodes);
+  }
+  const s = usePlan.getState();
+  if (s.viewing) {
+    const raw = localStorage.getItem(slot(s.viewing.returnTo));
+    if (raw) note((JSON.parse(raw) as SheetData).nodes);
+  }
+  return collectGarbage(candidates, inUse);
 }
 
 // ── Viewing a shared link ──

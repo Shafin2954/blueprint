@@ -251,7 +251,7 @@ function NodeCard({
             image not on this device
           </span>
         )}
-        {(img || (!node.image && node.link && looksLikeImage(node.link))) && (
+        {(img || (!node.image && !readOnly && node.link && looksLikeImage(node.link))) && (
           // eslint-disable-next-line @next/next/no-img-element -- user data URLs / arbitrary hosts
           <img
             src={img ?? node.link}
