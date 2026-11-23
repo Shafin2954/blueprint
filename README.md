@@ -45,16 +45,20 @@ A place for your own brain to play: no AI inside, no network calls, nothing preb
 
 Press **?** (or the ? button) for a searchable guide to every card, link, plot-hole check and tool, each with a short explanation and a mini diagram. The **?** on any plot-hole flag opens that check's entry.
 
-**Start** (shown on an empty sheet) offers a way in: three worked examples (a mystery, a decision, a project plan), a step-by-step **tour** of the mystery, and fill-in **templates** (weigh a decision, solve a mystery, test a belief, plan a project) whose `[placeholders]` you replace in your own words. Opening one replaces the sheet; Undo brings yours back.
+**Start** (shown on an empty sheet) offers a way in: three worked examples (a mystery, a decision, a project plan), a step-by-step **tour** of the mystery, and fill-in **templates** (weigh a decision, solve a mystery, test a belief, plan a project) whose `[placeholders]` you replace in your own words. If your sheet has cards, it opens as a new sheet instead.
 
 ## Share with AI (optional, outside the app)
 
 Blueprint never talks to an AI. **Share with AI** turns the board into a Markdown file: every card with its confidence and source, every link, how the weights add up, and the flags already raised, with a consistency-check request on top. Copy it or download the `.md`, then paste it into any assistant for a second opinion on whether your thinking holds together. Images aren't included.
 
+## Install
+
+Blueprint is an installable web app: on a phone use **Share → Add to Home Screen** (iPhone) or **⋮ → Install app** (Android); on desktop, the install icon in the address bar. It then opens full-screen and works offline.
+
 ## Safety
 
 - **Undo / redo everything** with ↶ ↷ or Ctrl/⌘+Z, Ctrl/⌘+Shift+Z. Deleting shows a toast with an Undo button.
-- Your sheet saves automatically in this browser. Use **Export** to keep a copy or move it to another device.
+- **Sheets:** keep as many boards as you like (new, open, rename, duplicate, delete). They save automatically in this browser; use **Export** to back one up or move it to another device.
 
 ## Run
 

@@ -152,6 +152,8 @@ function NodeCard({
   });
   const [forW, againstW] = weighed ? weighed.split("/").map(Number) : [0, 0];
   const belief = BELIEF_KINDS.has(node.kind);
+  const editing = usePlan((s) => s.editing === node.id);
+  const setEditing = (on: boolean) => usePlan.getState().setEditing(on ? node.id : null);
   const done = node.kind === "step" ? node.status === "done" : md === 1;
 
   return (
@@ -192,9 +194,38 @@ function NodeCard({
         </span>
       </div>
       <div className="px-3 pb-3">
-        <h3 className={`text-[14px] leading-snug text-[var(--ink)] ${node.kind === "goal" ? "font-semibold" : "font-medium"}`}>
-          {node.title}
-        </h3>
+        {editing ? (
+          <textarea
+            data-nodrag
+            autoFocus
+            defaultValue={node.title}
+            rows={2}
+            aria-label="Card title"
+            onFocus={(e) => e.target.select()}
+            onBlur={(e) => {
+              const v = e.target.value.trim();
+              if (v && v !== node.title) usePlan.getState().updateNode(node.id, { title: v });
+              setEditing(false);
+            }}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter" && !e.shiftKey) (e.target as HTMLTextAreaElement).blur();
+              if (e.key === "Escape") {
+                (e.target as HTMLTextAreaElement).value = node.title;
+                (e.target as HTMLTextAreaElement).blur();
+              }
+            }}
+            className="bp-input -mx-1 w-[calc(100%+8px)] resize-none px-1 py-0.5 text-[14px] leading-snug"
+          />
+        ) : (
+          <h3
+            data-title
+            title="Double-click to edit"
+            className={`text-[14px] leading-snug text-[var(--ink)] ${node.kind === "goal" ? "font-semibold" : "font-medium"}`}
+          >
+            {node.title}
+          </h3>
+        )}
         {node.body &&
           (node.kind === "snippet" ? (
             <pre className="bp-mono mt-2 max-h-28 overflow-hidden whitespace-pre-wrap rounded-sm border border-[var(--line)] bg-[var(--code)] p-2 text-[11px] leading-relaxed text-[var(--ink)]">

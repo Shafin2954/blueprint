@@ -88,6 +88,20 @@ export function redo() {
   return true;
 }
 
+/** Replace the board wholesale (e.g. switching sheets) without making it an undo step; history starts fresh. */
+export function loadWithoutHistory(fn: () => void) {
+  applying = true;
+  try {
+    fn();
+  } finally {
+    applying = false;
+  }
+  past = [];
+  future = [];
+  lastChange = 0;
+  emit();
+}
+
 /** Make the next change its own undo step, even if it follows quickly (e.g. a delete). */
 export function checkpoint() {
   lastChange = 0;
@@ -107,7 +121,12 @@ export function useHistory() {
 
 /** Show a short message with an Undo button (rendered by <Toast/> in the Planner). */
 export function toastUndo(text: string) {
-  window.dispatchEvent(new CustomEvent("blueprint-toast", { detail: text }));
+  window.dispatchEvent(new CustomEvent("blueprint-toast", { detail: { text, undo: true } }));
+}
+
+/** A plain message, no Undo button. */
+export function toast(text: string) {
+  window.dispatchEvent(new CustomEvent("blueprint-toast", { detail: { text, undo: false } }));
 }
 
 /** Delete a card or link as its own undo step, and offer to take it back. */

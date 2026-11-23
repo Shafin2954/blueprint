@@ -24,6 +24,14 @@ interface PlanState {
   showAllKinds: boolean;
   /** Touch-friendly linking: the card a link is being drawn from, waiting for a target tap. */
   linking: string | null;
+  /** Which sheet is open (see lib/sheets.ts). */
+  sheetId: string;
+  /** A card the user just created: the inspector focuses its title once, then clears this. */
+  fresh: string | null;
+  clearFresh: () => void;
+  /** Card whose title is being edited in place on the sheet. */
+  editing: string | null;
+  setEditing: (id: string | null) => void;
 
   setShowAllKinds: (v: boolean) => void;
   startLinking: (id: string | null) => void;
@@ -36,6 +44,8 @@ interface PlanState {
     patch: Partial<Pick<PlanNode, "title" | "body" | "kind" | "status" | "confidence" | "link" | "image" | "source">>,
   ) => void;
   moveNode: (id: string, x: number, y: number) => void;
+  /** Move many cards at once (one undo step). */
+  setPositions: (pos: Record<string, { x: number; y: number }>) => void;
   removeNode: (id: string) => void;
   connect: (from: string, to: string, rel?: Rel) => boolean;
   setRel: (edgeId: string, rel: Rel) => boolean;
@@ -116,16 +126,21 @@ export const usePlan = create<PlanState>()(
       gathered: [],
       showAllKinds: false,
       linking: null,
+      sheetId: "",
+      fresh: null,
+      clearFresh: () => set({ fresh: null }),
+      editing: null,
+      setEditing: (editing) => set({ editing }),
 
       setShowAllKinds: (showAllKinds) => set({ showAllKinds }),
       startLinking: (linking) => set({ linking }),
       setProject: (project) => set({ project }),
       setView: (view) => set({ view }),
-      select: (selection) => set({ selection }),
+      select: (selection) => set({ selection, fresh: null }),
 
       addNode: (kind, x, y, title, body) => {
         const [node, counters] = makeNode(get().counters, kind, x, y, title, body);
-        set((s) => ({ nodes: { ...s.nodes, [node.id]: node }, counters, selection: { type: "node", id: node.id } }));
+        set((s) => ({ nodes: { ...s.nodes, [node.id]: node }, counters, selection: { type: "node", id: node.id }, fresh: node.id }));
         return node.id;
       },
 
@@ -146,6 +161,13 @@ export const usePlan = create<PlanState>()(
 
       moveNode: (id, x, y) =>
         set((s) => (s.nodes[id] ? { nodes: { ...s.nodes, [id]: { ...s.nodes[id], x, y } } } : s)),
+
+      setPositions: (pos) =>
+        set((s) => {
+          const nodes = { ...s.nodes };
+          for (const [id, p] of Object.entries(pos)) if (nodes[id]) nodes[id] = { ...nodes[id], x: p.x, y: p.y };
+          return { nodes };
+        }),
 
       removeNode: (id) =>
         set((s) => {
@@ -225,7 +247,7 @@ export const usePlan = create<PlanState>()(
         const k = Math.min(1, get().view.k < 0.7 ? 0.8 : get().view.k);
         const cx = ox + (Math.min(cols, clean.length) * 264) / 2;
         const cy = oy + (rows * 132) / 2;
-        set({ selection: null, view: { k, x: window.innerWidth / 2 - cx * k, y: window.innerHeight / 2 - cy * k } });
+        set({ selection: null, fresh: null, view: { k, x: window.innerWidth / 2 - cx * k, y: window.innerHeight / 2 - cy * k } });
       },
 
       testAssumption: (id) => {
@@ -405,8 +427,8 @@ export const usePlan = create<PlanState>()(
         removeItem: (k) => localStorage.removeItem(k),
       })),
       skipHydration: true,
-      partialize: ({ project, nodes, edges, counters, view, dismissed, showAllKinds }) => ({
-        project, nodes, edges, counters, view, dismissed, showAllKinds,
+      partialize: ({ project, nodes, edges, counters, view, dismissed, showAllKinds, sheetId }) => ({
+        project, nodes, edges, counters, view, dismissed, showAllKinds, sheetId,
       }),
     },
   ),

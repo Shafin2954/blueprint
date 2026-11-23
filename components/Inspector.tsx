@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { imageToDataUrl, isUrl } from "@/lib/image";
 import { deleteWithUndo } from "@/lib/history";
 import { usePlan } from "@/lib/store";
@@ -15,6 +15,20 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
   const { updateNode, startLinking, decompose, splitStep, promote, focus, testAssumption, addNode, connect } =
     usePlan.getState();
   const fileRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
+  const fresh = usePlan((s) => s.fresh === id);
+
+  // A card the user just made: put the cursor in its title, placeholder text selected.
+  useEffect(() => {
+    if (!fresh) return;
+    const t = titleRef.current;
+    if (t) {
+      t.focus({ preventScroll: true });
+      t.select();
+    }
+    usePlan.getState().clearFresh();
+  }, [fresh]);
   const [imgErr, setImgErr] = useState<string | null>(null);
 
   const attach = async (file: Blob | null | undefined) => {
@@ -82,13 +96,22 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
 
       <label className="bp-label mt-4 block">Title</label>
       <textarea
+        ref={titleRef}
         value={node.title}
         rows={2}
         onChange={(e) => updateNode(id, { title: e.target.value })}
+        onKeyDown={(e) => {
+          // Enter finishes the title (Shift+Enter for a new line) and moves on to notes.
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            notesRef.current?.focus();
+          }
+        }}
         className="bp-input mt-1 resize-none text-[14px]"
       />
       <label className="bp-label mt-3 block">{node.kind === "snippet" ? "Snippet" : "Notes"}</label>
       <textarea
+        ref={notesRef}
         value={node.body}
         rows={node.kind === "snippet" ? 7 : 4}
         onChange={(e) => updateNode(id, { body: e.target.value })}

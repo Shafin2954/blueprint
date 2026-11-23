@@ -269,8 +269,15 @@ export default function Board() {
   };
 
   const onDoubleClick = (e: React.MouseEvent) => {
-    const t = e.target as HTMLElement;
-    if (t.closest("[data-node-id]") || t.closest("[data-edge]")) return;
+    // The board captures the pointer during a press (for dragging), so the browser
+    // reports the double-click on the board itself. Ask what's really underneath.
+    const t = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null) ?? (e.target as HTMLElement);
+    const card = t.closest<HTMLElement>("[data-node-id]");
+    if (card) {
+      if (t.closest("[data-title]")) usePlan.getState().setEditing(card.dataset.nodeId!);
+      return;
+    }
+    if (t.closest("[data-edge]") || t.closest("[data-nodrag]")) return;
     const p = toWorld(e.clientX, e.clientY);
     addNode("thought", p.x - NODE_W / 2, p.y - 20, "New thought");
   };

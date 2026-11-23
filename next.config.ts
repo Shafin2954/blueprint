@@ -7,6 +7,8 @@ const basePath = process.env.BASE_PATH?.replace(/\/$/, "") || undefined;
 const nextConfig: NextConfig = {
   output: "export",
   basePath,
+  // Exposed to the browser for things Next doesn't prefix itself (service worker URL).
+  env: { NEXT_PUBLIC_BASE_PATH: basePath ?? "" },
 };
 
 export default nextConfig;

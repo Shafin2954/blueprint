@@ -249,8 +249,38 @@ export const HELP: HelpEntry[] = [
   {
     id: "start", group: "Tools", title: "Start: examples, tour & templates",
     summary: "The Start button opens worked examples, a guided tour and fill-in templates.",
-    body: "Examples (a mystery, a decision, a project plan) are complete little sheets to poke at. “Take the tour” walks through the mystery step by step. Templates give you the structure for a decision, a mystery, testing a belief or planning a project, with [placeholders] to replace in your own words. Opening one replaces the current sheet — Undo brings yours back.",
+    body: "Examples (a mystery, a decision, a project plan) are complete little sheets to poke at. “Take the tour” walks through the mystery step by step. Templates give you the structure for a decision, a mystery, testing a belief or planning a project, with [placeholders] to replace in your own words. If your current sheet has cards, it opens as a new sheet, so nothing is overwritten.",
     keywords: "start example tour template onboarding begin new lost",
+  },
+  {
+    id: "sheets", group: "Tools", title: "Sheets",
+    summary: "Keep several boards: new, open, rename, duplicate, delete.",
+    body: "Open the list from “Sheets” in the toolbar, or “all sheets ›” in the title block. Each sheet keeps its own cards, view and undo history. Examples, templates and imports open as new sheets when the current one has cards. Sheets live in this browser — Export one to back it up or move it to another device.",
+    keywords: "sheet board file project multiple new open rename duplicate delete switch",
+  },
+  {
+    id: "find", group: "Tools", title: "Find a card",
+    summary: "Ctrl/⌘+K or / — search titles, notes, refs and sources.",
+    body: "Type any words, a ref like E-02, or a source name. Arrow keys move through results, Enter jumps to the card and opens it. With nothing typed, it lists your most recent cards. The magnifier in the toolbar opens it too.",
+    keywords: "search find jump locate ref",
+  },
+  {
+    id: "inline", group: "Tools", title: "Editing a card",
+    summary: "Double-click a title to edit it in place; new cards start ready to type.",
+    body: "On the sheet, double-click a card's title to rename it right there (Enter saves, Esc cancels). Tap or click a card to open the inspector for everything else. A card you just added opens with its title selected, so you can type straight away; Enter moves on to the notes.",
+    keywords: "edit rename title inline type",
+  },
+  {
+    id: "tidy", group: "Tools", title: "Tidy",
+    summary: "Lays the sheet out left to right by how cards connect.",
+    body: "Cards with nothing feeding them go on the left; each card sits one column right of what supports or feeds it, so evidence → claims → conclusions and steps → milestones → goals read like a sentence. Separate clusters stack vertically; unlinked cards go in a grid underneath. It's one undo step, so try it freely.",
+    keywords: "layout arrange auto tidy clean organize messy",
+  },
+  {
+    id: "install", group: "Tools", title: "Install as an app",
+    summary: "Add Blueprint to your home screen; it then works offline.",
+    body: "On a phone: open the site, then Share → Add to Home Screen (iPhone) or the ⋮ menu → Install app (Android). On a computer, use the install icon in the address bar. It opens full-screen and works without a connection; your sheets stay on that device.",
+    keywords: "install app pwa home screen offline phone desktop",
   },
   {
     id: "undo", group: "Tools", title: "Undo & redo",
@@ -282,7 +312,7 @@ export const HELP: HelpEntry[] = [
   },
   {
     id: "keys", group: "Tools", title: "Keys & moving around",
-    summary: "⌘/Ctrl+Z undo · D dump · G generate · ? help · Del delete · Esc deselect.",
+    summary: "⌘/Ctrl+Z undo · ⌘/Ctrl+K find · D dump · G generate · ? help · Del delete · Esc deselect.",
     body: "Drag the paper to pan; pinch or ctrl+scroll to zoom; Fit shows everything. Double-click the paper for a thought. Shift-click to gather. Your sheet saves in this browser automatically — use Export/Import to keep or move a copy.",
     keywords: "shortcut keyboard pan zoom save export import",
   },

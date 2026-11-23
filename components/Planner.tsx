@@ -4,7 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePlan } from "@/lib/store";
 import { nextMoves } from "@/lib/graph";
 import { CORE_KINDS, KIND_GROUPS, KIND_META, type Kind } from "@/lib/types";
-import { deleteWithUndo, redo, startHistory, toastUndo, undo, useHistory } from "@/lib/history";
+import { checkpoint, deleteWithUndo, redo, startHistory, toast, toastUndo, undo, useHistory } from "@/lib/history";
+import { tidy } from "@/lib/layout";
+import { newSheet, startSheets } from "@/lib/sheets";
+import { Sheets } from "./Sheets";
+import { Find } from "./Find";
 import Board from "./Board";
 import Inspector from "./Inspector";
 import { Symbol } from "./NodeCard";
@@ -59,7 +63,7 @@ function Pipeline() {
   );
 }
 
-function TitleBlock() {
+function TitleBlock({ onSheets }: { onSheets: () => void }) {
   const project = usePlan((s) => s.project);
   const setProject = usePlan((s) => s.setProject);
   const k = usePlan((s) => s.view.k);
@@ -68,7 +72,12 @@ function TitleBlock() {
   return (
     <div className="bp-panel bp-mono pointer-events-auto hidden w-[300px] text-[10px] uppercase tracking-[0.16em] text-[var(--ink-dim)] md:block">
       <div className="border-b border-[var(--line)] px-3 py-2">
-        <div className="text-[9px] text-[var(--ink-faint)]">Project</div>
+        <div className="flex items-center text-[9px] text-[var(--ink-faint)]">
+          Sheet
+          <button onClick={onSheets} className="ml-auto normal-case tracking-normal text-[var(--milestone)] hover:underline">
+            all sheets ›
+          </button>
+        </div>
         <input
           value={project}
           onChange={(e) => setProject(e.target.value)}
@@ -84,12 +93,10 @@ function TitleBlock() {
   );
 }
 
-type Overlay = "gen" | "dump" | "share" | "help" | "start" | null;
+type Overlay = "gen" | "dump" | "share" | "help" | "start" | "sheets" | "find" | null;
 
 function Toolbar({ open }: { open: (o: Overlay) => void }) {
   const addNode = usePlan((s) => s.addNode);
-  const reset = usePlan((s) => s.reset);
-  const importPlan = usePlan((s) => s.importPlan);
   const showAll = usePlan((s) => s.showAllKinds);
   const setShowAll = usePlan((s) => s.setShowAllKinds);
   const { canUndo, canRedo } = useHistory();
@@ -137,6 +144,9 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
         {showAll ? "− fewer" : "+ more"}
       </button>
       <span className="mx-1 h-5 w-px bg-[var(--line)]" />
+      <button onClick={() => open("find")} className="bp-btn" title="Find a card (Ctrl/⌘+K or /)" aria-label="Find a card">
+        Find
+      </button>
       <button onClick={() => open("start")} className="bp-btn" title="Examples, a guided tour, and templates">Start</button>
       <button onClick={() => open("dump")} className="bp-btn" title="Empty your head: one thought per line (D)">Dump</button>
       <button onClick={() => open("gen")} className="bp-btn" title="Idea generator (G)">Generate</button>
@@ -152,18 +162,26 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
         ?
       </button>
       <span className="mx-1 h-5 w-px bg-[var(--line)]" />
+      <button
+        onClick={() => {
+          const st = usePlan.getState();
+          if (Object.keys(st.nodes).length < 2) return;
+          checkpoint();
+          st.setPositions(tidy(st.nodes, st.edges));
+          checkpoint();
+          fitToScreen();
+          toastUndo("Tidied the sheet");
+        }}
+        className="bp-tool"
+        title="Lay the sheet out left to right by how cards connect (undoable)"
+      >
+        Tidy
+      </button>
       <button onClick={fitToScreen} className="bp-tool" title="Fit the whole plan on screen">Fit</button>
       <button onClick={exportPlan} className="bp-tool" title="Download plan as JSON">Export</button>
       <button onClick={() => file.current?.click()} className="bp-tool" title="Load a .blueprint.json">Import</button>
-      <button
-        onClick={() => {
-          if (!Object.keys(usePlan.getState().nodes).length) return;
-          reset();
-          toastUndo("Started a new sheet");
-        }}
-        className="bp-tool"
-      >
-        New
+      <button onClick={() => open("sheets")} className="bp-tool" title="Your sheets: new, open, rename, duplicate, delete">
+        Sheets
       </button>
       <input
         ref={file}
@@ -174,9 +192,14 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
           const f = e.target.files?.[0];
           if (!f) return;
           try {
-            if (!importPlan(JSON.parse(await f.text()))) alert("That file doesn't look like a plan.");
+            const d = JSON.parse(await f.text());
+            if (!d || typeof d !== "object" || !d.nodes || !d.edges) toast("That file doesn't look like a Blueprint sheet.");
+            else if (newSheet({ project: d.project || f.name.replace(/\.blueprint\.json$|\.json$/, ""), nodes: d.nodes, edges: d.edges, counters: d.counters ?? {} })) {
+              fitToScreen();
+              toast(`Imported “${d.project || f.name}” as a new sheet`);
+            }
           } catch {
-            alert("Couldn't read that file.");
+            toast("Couldn't read that file.");
           }
           e.target.value = "";
         }}
@@ -199,11 +222,12 @@ function LinkBar() {
 }
 
 function Toast() {
-  const [msg, setMsg] = useState<{ text: string; n: number } | null>(null);
+  const [msg, setMsg] = useState<{ text: string; undo: boolean; n: number } | null>(null);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     const on = (e: Event) => {
-      setMsg((m) => ({ text: (e as CustomEvent<string>).detail, n: (m?.n ?? 0) + 1 }));
+      const d = (e as CustomEvent<{ text: string; undo: boolean }>).detail;
+      setMsg((m) => ({ ...d, n: (m?.n ?? 0) + 1 }));
       clearTimeout(timer);
       timer = setTimeout(() => setMsg(null), 6000);
     };
@@ -217,7 +241,7 @@ function Toast() {
   return (
     <div key={msg.n} role="status" className="bp-panel pointer-events-auto flex items-center gap-3 px-3 py-2 text-[12px] text-[var(--ink)]">
       {msg.text}
-      <button
+      {msg.undo && <button
         onClick={() => {
           undo();
           setMsg(null);
@@ -225,7 +249,7 @@ function Toast() {
         className="bp-btn bp-btn-primary px-2 py-0.5 text-[11px]"
       >
         Undo
-      </button>
+      </button>}
     </div>
   );
 }
@@ -271,6 +295,12 @@ export default function Planner() {
   useEffect(() => {
     Promise.resolve(usePlan.persist.rehydrate()).then(() => {
       startHistory();
+      startSheets();
+      // Offline + installable. Only in production builds: a dev-mode worker would cache stale code.
+      if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
+        const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+        navigator.serviceWorker.register(`${base}/sw.js`, { scope: `${base}/` }).catch(() => {});
+      }
       // First thing on an empty sheet: offer a way in (examples, tour, templates).
       if (Object.keys(usePlan.getState().nodes).length === 0) setOverlay((o) => ({ kind: "start", n: o.n + 1 }));
       setReady(true);
@@ -282,6 +312,11 @@ export default function Planner() {
       const t = e.target as HTMLElement;
       const inField = t.closest("input, textarea, select, [contenteditable]");
       // Undo/redo work everywhere except inside text fields, which have their own.
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setOverlay((o) => ({ kind: o.kind === "find" ? null : "find", n: o.n + 1 }));
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !inField) {
         const k = e.key.toLowerCase();
         if (k === "z" && !e.shiftKey) {
@@ -306,6 +341,9 @@ export default function Planner() {
         s.startLinking(null);
       } else if (e.key.toLowerCase() === "g") {
         toggle("gen");
+      } else if (e.key === "/") {
+        e.preventDefault();
+        toggle("find");
       } else if (e.key === "?") {
         e.preventDefault();
         toggle("help");
@@ -323,7 +361,7 @@ export default function Planner() {
   return (
     <main className="relative h-dvh w-full overflow-hidden">
       <Board />
-      <div className="pointer-events-none absolute inset-0 flex flex-col gap-3 p-4">
+      <div className="pointer-events-none absolute inset-0 flex flex-col gap-3 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
         <header className="flex flex-wrap items-center gap-3">
           <div className="bp-panel pointer-events-auto hidden items-center gap-2 px-3 py-2 md:flex">
             <span className="bp-accent bp-goal"><Symbol kind="goal" size={16} /></span>
@@ -340,6 +378,10 @@ export default function Planner() {
             {overlay.kind === "dump" && <Dump key={overlay.n} onClose={close} />}
             {overlay.kind === "share" && <Share key={overlay.n} onClose={close} />}
             {overlay.kind === "help" && <Help key={overlay.n} initialQuery={overlay.q} onClose={close} />}
+            {overlay.kind === "find" && <Find key={overlay.n} onClose={close} />}
+            {overlay.kind === "sheets" && (
+              <Sheets key={overlay.n} onClose={close} onNew={() => setOverlay((o) => ({ kind: "start", n: o.n + 1 }))} />
+            )}
             {overlay.kind === "start" && (
               <Start
                 key={overlay.n}
@@ -368,9 +410,9 @@ export default function Planner() {
         <div className="flex flex-col items-center gap-2"><LinkBar /><GatherBar /><Toast /></div>
         <footer className="flex items-end justify-between gap-3">
           <p className="bp-mono hidden text-[10px] uppercase tracking-[0.18em] text-[var(--ink-faint)] sm:block">
-            Drag paper to pan · ctrl+scroll to zoom · double-click for a thought · drag a right port to link · shift-click to gather · drop images or links on the paper · ⌘/Ctrl+Z undo · D dump · G generate · ? help
+            Drag paper to pan · ctrl+scroll to zoom · double-click for a thought · drag a right port to link · shift-click to gather · drop images or links on the paper · ⌘/Ctrl+Z undo · ⌘/Ctrl+K find · D dump · G generate · ? help
           </p>
-          <TitleBlock />
+          <TitleBlock onSheets={() => setOverlay((o) => ({ kind: "sheets", n: o.n + 1 }))} />
         </footer>
       </div>
     </main>

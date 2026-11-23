@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { STARTERS, type Starter, type TourStep } from "@/lib/starters";
 import { usePlan } from "@/lib/store";
-import { toastUndo } from "@/lib/history";
+import { toast } from "@/lib/history";
+import { newSheet } from "@/lib/sheets";
 import { Symbol } from "./NodeCard";
 
 const fitAll = () => {
@@ -11,11 +12,16 @@ const fitAll = () => {
   usePlan.getState().fit(window.innerWidth, window.innerHeight, wide ? 300 : 0);
 };
 
+/** Open an example or template. Never overwrites work: a non-empty sheet stays, and this opens as a new one. */
 export function loadStarter(st: Starter) {
   const hadCards = Object.keys(usePlan.getState().nodes).length > 0;
-  usePlan.getState().loadSheet(st.build());
+  if (hadCards) {
+    if (!newSheet(st.build())) return;
+    toast(`Opened “${st.title}” as a new sheet — your other work is under Sheets`);
+  } else {
+    usePlan.getState().loadSheet(st.build());
+  }
   fitAll();
-  if (hadCards) toastUndo(`Opened “${st.title}” — your previous sheet is one Undo away`);
 }
 
 function Item({ st, onPick, onTour }: { st: Starter; onPick: () => void; onTour?: () => void }) {
