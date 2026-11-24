@@ -94,7 +94,8 @@ interface PlanState {
   selectFreshEdge: () => void;
   /** Replace the sheet with a ready-made one (example or template). Undoable. */
   loadSheet: (s: { project: string; nodes: Record<string, PlanNode>; edges: Record<string, Edge>; counters: Record<Kind, number>; frames?: Record<string, Frame> }) => void;
-  fit: (w: number, h: number, padLeft?: number, padRight?: number) => void;
+  /** minK: how far it may zoom out (phones default to a readable 0.55 for automatic fits). */
+  fit: (w: number, h: number, padLeft?: number, padRight?: number, minK?: number) => void;
   importPlan: (data: unknown) => boolean;
   reset: () => void;
 }
@@ -182,7 +183,10 @@ export const usePlan = create<PlanState>()(
 
       setShowAllKinds: (showAllKinds) => set({ showAllKinds }),
       // Linking hides the editor, so the "tap the target" bar (and the sheet) stay visible.
-      startLinking: (linking) => set(linking ? { linking, selection: null } : { linking }),
+      startLinking: (linking) => {
+        if (linking && typeof window !== "undefined" && window.innerWidth < 768) window.dispatchEvent(new CustomEvent("blueprint-sidebar-fold"));
+        set(linking ? { linking, selection: null, spotlight: null } : { linking, spotlight: null });
+      },
       setProject: (project) => set({ project }),
       setView: (view) => set({ view }),
       select: (selection) => set((s) => ({ selection, fresh: null, freshEdge: selection?.id === s.freshEdge ? s.freshEdge : null })),
@@ -474,8 +478,10 @@ export const usePlan = create<PlanState>()(
           x = at.x;
           y = at.y;
         } else if (sel) {
-          x = sel.x + 300;
-          y = sel.y;
+          // Same kind as the selected card: stack under it (a column of evidence);
+          // a different kind: next column to the right (evidence → claim → conclusion).
+          x = sel.kind === kind ? sel.x : sel.x + 300;
+          y = sel.kind === kind ? sel.y + 140 : sel.y;
         } else {
           const a = visibleArea(window.innerWidth, window.innerHeight, false);
           x = ((a.left + a.right) / 2 - s.view.x) / s.view.k - 116;
@@ -500,19 +506,19 @@ export const usePlan = create<PlanState>()(
           linking: null,
         }),
 
-      fit: (w, h, padLeft = 0, padRight = 0) => {
+      fit: (w, h, padLeft = 0, padRight = 0, minZoom) => {
         const list = Object.values(get().nodes);
         if (!list.length) return;
         const minX = Math.min(...list.map((n) => n.x));
         const minY = Math.min(...list.map((n) => n.y));
         const maxX = Math.max(...list.map((n) => n.x + 232));
         const maxY = Math.max(...list.map((n) => n.y + 140));
-        const top = 120;
-        const bottom = 60;
+        const top = w < 768 ? 130 : 120;
+        const bottom = w < 768 ? 24 : 90; // desktop: leave room for the command bar
         const aw = Math.max(200, w - padLeft - padRight - 40);
         const ah = Math.max(200, h - top - bottom);
         // On phones, never zoom out so far that card text is unreadable; pan instead.
-        const minK = w < 768 ? 0.55 : 0.3;
+        const minK = minZoom ?? (w < 768 ? 0.55 : 0.3);
         const k = Math.min(1, Math.max(minK, Math.min(aw / (maxX - minX), ah / (maxY - minY))));
         set({
           view: {

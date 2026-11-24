@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePlan, useReadOnly } from "@/lib/store";
-import { nextMoves } from "@/lib/graph";
-import { CORE_KINDS, KIND_GROUPS, KIND_META, KINDS, type Kind } from "@/lib/types";
+import { CORE_KINDS, KIND_META, KINDS, type Kind } from "@/lib/types";
 import { checkpoint, deleteWithUndo, redo, startHistory, toast, toastUndo, undo, useHistory } from "@/lib/history";
 import { tidy } from "@/lib/layout";
 import { membersOf } from "@/lib/frames";
+import { sheetTitle } from "@/lib/naming";
 import { NEXT_KIND, describe as describeCard, nearestInDirection, nearestTo, type Dir } from "@/lib/keyboard";
 import { weight } from "@/lib/reason";
 import { BELIEF_KINDS } from "@/lib/types";
@@ -26,14 +26,12 @@ import { Start, Tour, openForTour } from "./Start";
 import type { Starter } from "@/lib/starters";
 import Sidebar from "./Sidebar";
 
+/** Show the whole sheet. When the user asks (Fit, Tidy, opening a shared link) it really fits, even if small. */
 const fitToScreen = () => {
   const s = usePlan.getState();
-  if (window.innerWidth >= 900) return s.fit(window.innerWidth, window.innerHeight, 320, s.selection ? 330 : 20);
-  // Phones: a whole plan is unreadable at that scale, so open on the next move instead.
-  const top = nextMoves(s.nodes, s.edges)[0];
-  if (top) s.focus(top.node.id, window.innerWidth, window.innerHeight);
-  else s.fit(window.innerWidth, window.innerHeight);
+  if (window.innerWidth >= 900) return s.fit(window.innerWidth, window.innerHeight, 320, s.selection ? 330 : 20, 0.25);
   s.select(null);
+  s.fit(window.innerWidth, window.innerHeight, 0, 0, 0.25);
 };
 
 function Pipeline() {
@@ -75,6 +73,7 @@ function Pipeline() {
 
 function TitleBlock({ onSheets }: { onSheets: () => void }) {
   const readOnly = useReadOnly();
+  const nodes = usePlan((s) => s.nodes);
   const project = usePlan((s) => s.project);
   const setProject = usePlan((s) => s.setProject);
   const k = usePlan((s) => s.view.k);
@@ -92,11 +91,12 @@ function TitleBlock({ onSheets }: { onSheets: () => void }) {
           )}
         </div>
         <input
-          value={project}
+          value={project === "Untitled" ? "" : project}
+          placeholder={sheetTitle(project, nodes)}
           readOnly={readOnly}
           aria-label="Current sheet name"
-          onChange={(e) => setProject(e.target.value)}
-          className="w-full bg-transparent font-sans text-[14px] normal-case tracking-normal text-[var(--ink)] outline-none"
+          onChange={(e) => setProject(e.target.value || "Untitled")}
+          className="w-full bg-transparent font-sans text-[14px] normal-case tracking-normal text-[var(--ink)] outline-none placeholder:text-[var(--ink-dim)]"
         />
       </div>
       <div className="grid grid-cols-[1.5fr_1fr_0.8fr] divide-x divide-[var(--line)]">
@@ -111,8 +111,6 @@ function TitleBlock({ onSheets }: { onSheets: () => void }) {
 type Overlay = "gen" | "dump" | "share" | "help" | "start" | "sheets" | "find" | null;
 
 function Toolbar({ open }: { open: (o: Overlay) => void }) {
-  const showAll = usePlan((s) => s.showAllKinds);
-  const setShowAll = usePlan((s) => s.setShowAllKinds);
   const { canUndo, canRedo } = useHistory();
   const file = useRef<HTMLInputElement>(null);
   const readOnly = useReadOnly();
@@ -124,7 +122,7 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
     const blob = new Blob([JSON.stringify({ project, nodes: full, edges, frames, counters }, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `${project.replace(/[^\w-]+/g, "-").toLowerCase() || "plan"}.blueprint.json`;
+    a.download = `${sheetTitle(project, nodes).replace(/[^\w-]+/g, "-").toLowerCase() || "plan"}.blueprint.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -175,33 +173,34 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
         />
       </span>
       <span className="hidden items-center md:flex">
-      {KIND_GROUPS.map((group) => group.filter((k) => showAll || CORE_KINDS.has(k))).filter((g) => g.length).map((group, gi) => (
-        <span key={gi} className="flex items-center">
-          {gi > 0 && <span className="mx-1 h-5 w-px bg-[var(--line)]" />}
-          {group.map((k: Kind) => (
-            <button
-              key={k}
-              onClick={() => usePlan.getState().addCardNear(k)}
-              title={`Add ${KIND_META[k].label} — ${KIND_META[k].hint}`}
-              className={`bp-${k} bp-tool px-2`}
-              aria-label={`Add ${KIND_META[k].label}`}
-            >
-              <span className="bp-accent"><Symbol kind={k} /></span>
-              <span className={`hidden text-[12px] ${showAll ? "2xl:inline" : "xl:inline"}`}>{KIND_META[k].label}</span>
-            </button>
-          ))}
-        </span>
-      ))}
-      <button
-        onClick={() => setShowAll(!showAll)}
-        className="bp-tool bp-mono px-2 text-[10px] uppercase tracking-[0.1em]"
-        title={showAll ? "Show only the core cards" : "Show all 12 card kinds: spark, assumption, goal, milestone, risk, snippet…"}
-      >
-        {showAll ? "− fewer" : "+ more"}
-      </button>
+        {KINDS.filter((k) => CORE_KINDS.has(k)).map((k: Kind) => (
+          <button
+            key={k}
+            onClick={() => usePlan.getState().addCardNear(k)}
+            title={`Add ${KIND_META[k].label} — ${KIND_META[k].hint}`}
+            className={`bp-${k} bp-tool px-2`}
+            aria-label={`Add ${KIND_META[k].label}`}
+          >
+            <span className="bp-accent"><Symbol kind={k} /></span>
+            <span className="hidden text-[12px] xl:inline">{KIND_META[k].label}</span>
+          </button>
+        ))}
+        {/* The other kinds, labelled, in a menu — instead of a row of unlabelled icons. */}
+        <PopMenu
+          id="bp-more-kinds"
+          label={<span className="bp-mono text-[10px] uppercase tracking-[0.1em]">+ more cards</span>}
+          title="Spark, assumption, goal, milestone, risk, snippet"
+          items={KINDS.filter((k) => !CORE_KINDS.has(k)).map((k) => ({
+            label: KIND_META[k].label,
+            hint: "",
+            icon: <span className={`bp-${k} bp-accent`}><Symbol kind={k} /></span>,
+            run: () => usePlan.getState().addCardNear(k),
+          }))}
+        />
       </span>
       <span className="mx-1 h-5 w-px bg-[var(--line)]" />
-      <button onClick={() => open("find")} className="bp-btn" title="Find a card (Ctrl/⌘+K or /)" aria-label="Find a card">Find</button>
+      <button onClick={tidyNow} className="bp-btn max-md:!hidden" title="Lay the sheet out left to right by how cards connect (undoable)">Tidy</button>
+      <button onClick={() => open("find")} className="bp-btn" title="Find a card (Ctrl/⌘+K)" aria-label="Find a card">Find</button>
       <button onClick={() => open("start")} className="bp-btn max-md:!hidden" title="Examples, a guided tour, and templates">Start</button>
       <button onClick={() => open("share")} className="bp-btn bp-btn-primary" title="Share a read-only link, or export Markdown for an AI consistency check">
         Share
@@ -317,6 +316,10 @@ function ViewerBar() {
 function frameCards() {
   const st = usePlan.getState();
   const ids = st.gathered.length ? st.gathered : st.selection?.type === "node" ? [st.selection.id] : [];
+  if (!ids.length) {
+    toast("Select a card, or gather several (shift-click or Gather), then Frame them.");
+    return;
+  }
   const [x, y] = centerWorld();
   const fid = st.addFrame(ids, x - 180, y - 120);
   st.clearGathered();
@@ -529,6 +532,11 @@ export default function Planner() {
         (t as HTMLElement).blur();
         return;
       }
+      // Esc in a panel's own field (Help search, Find…): close the panel.
+      if (inField && e.key === "Escape" && t.closest("[data-overlay]")) {
+        setOverlay((o) => ({ ...o, kind: null }));
+        return;
+      }
       if (inField || e.metaKey || e.ctrlKey || e.altKey) return;
       const s = usePlan.getState();
       // Shared, read-only sheets: look around, but no changes.
@@ -539,6 +547,9 @@ export default function Planner() {
       const inPanel = !!t.closest("aside, [data-overlay], [role=dialog], [role=listbox], [role=tablist]");
       if ((e.key === "Enter" || e.key === " ") && onControl) return;
       if (e.key.startsWith("Arrow") && inPanel) return;
+      // Single-letter shortcuts only when focus is on the sheet itself, not on a button or panel —
+      // otherwise typing (or a stray key after closing a panel) fires them.
+      const onSheet = !onControl && !inPanel;
       const toggle = (kind: Overlay) => setOverlay((o) => ({ kind: o.kind === kind ? null : kind, n: o.n + 1 }));
       const selNode = s.selection?.type === "node" ? s.nodes[s.selection.id] : undefined;
       const ARROWS: Record<string, Dir> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" };
@@ -552,6 +563,16 @@ export default function Planner() {
           s.moveNode(selNode.id, selNode.x + (d === "left" ? -step : d === "right" ? step : 0), selNode.y + (d === "up" ? -step : d === "down" ? step : 0));
           return;
         }
+        // Linking: arrows move a highlight to choose the target; the editor stays closed.
+        if (s.linking && s.nodes[s.linking]) {
+          const from = (s.spotlight && s.nodes[s.spotlight]) || s.nodes[s.linking];
+          const target = nearestInDirection(from, ARROWS[e.key], s.nodes);
+          if (target) {
+            usePlan.setState({ spotlight: target.id });
+            reveal(target.id);
+          }
+          return;
+        }
         const next = selNode ? nearestInDirection(selNode, ARROWS[e.key], s.nodes) : nearestTo(...centerWorld(), s.nodes);
         if (next) {
           s.select({ type: "node", id: next.id });
@@ -559,15 +580,22 @@ export default function Planner() {
         }
         return;
       }
-      if (e.key === "Enter" && s.selection) {
+      if (e.key === "Enter" && s.linking) {
         e.preventDefault();
-        if (s.linking && selNode && s.linking !== selNode.id) {
-          if (s.link(s.linking, selNode.id)) s.selectFreshEdge();
-          else toast("Those are already linked, or the link would loop back.");
-          s.startLinking(null);
-        } else if (s.selection.type !== "edge") s.setEditing(s.selection.id);
+        const target = s.spotlight;
+        if (!target || target === s.linking) return toast("Choose the card to link to with the arrow keys, then Enter.");
+        if (s.link(s.linking, target)) s.selectFreshEdge();
+        else toast("Those are already linked, or the link would loop back.");
+        s.startLinking(null);
+        usePlan.setState({ spotlight: null });
         return;
       }
+      if (e.key === "Enter" && s.selection && onSheet) {
+        e.preventDefault();
+        if (s.selection.type !== "edge") s.setEditing(s.selection.id);
+        return;
+      }
+      if (!onSheet && e.key !== "?" && e.key !== "/" && e.key !== "Escape") return;
       if (e.key.toLowerCase() === "l" && selNode) {
         s.startLinking(selNode.id);
         return;
@@ -611,6 +639,7 @@ export default function Planner() {
         s.select(null);
         s.clearGathered();
         s.startLinking(null);
+        usePlan.setState({ spotlight: null });
       } else if (e.key.toLowerCase() === "g") {
         toggle("gen");
       } else if (e.key === "/") {

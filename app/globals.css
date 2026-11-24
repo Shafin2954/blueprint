@@ -361,3 +361,7 @@ body {
 @media (pointer: coarse) {
   .bp-hit::after { content: ""; position: absolute; inset: -14px; }
 }
+/* Bottom-sheet menus clear the phone's home indicator. */
+@media (max-width: 767px) {
+  .bp-menu { bottom: max(0.5rem, env(safe-area-inset-bottom)) !important; max-height: calc(100dvh - 120px) !important; }
+}

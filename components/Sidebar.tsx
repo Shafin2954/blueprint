@@ -113,7 +113,9 @@ function HolesTab({ flags }: { flags: Flag[] }) {
       </p>
       {flags.length === 0 ? (
         <p className="px-2 py-3 text-[12px] leading-relaxed text-[var(--ink-dim)]">
-          Nothing flagged. Either the plan holds together, or there isn&apos;t enough on the sheet yet to tell.
+          {Object.keys(nodes).length < 3
+            ? "Add a few cards and link them — this is where weak spots in the reasoning or plan show up."
+            : "Nothing flagged. Either it holds together, or there isn't enough on the sheet yet to tell."}
         </p>
       ) : (
         <ul className="mt-2 space-y-1.5">
@@ -203,7 +205,7 @@ function Questions() {
     <ul className="space-y-3">
       <li className="text-[11px] leading-relaxed text-[var(--ink-faint)]">
         Ranked by the evidence linked to each answer (green for, red against) — not by how sure you said you are.
-        When the two disagree, look closer.
+        “Thin” means very little evidence either way: one weak reason can show 100% for.
       </li>
       {qs.map(({ q, answers }) => (
         <li key={q.id}>
@@ -223,7 +225,9 @@ function Questions() {
                   <span className="mt-1 flex items-center gap-2">
                     <Meter score={b.score} />
                     <span className="bp-mono shrink-0 text-[9px] text-[var(--ink-faint)]" title={`Evidence weight: ${Math.round(b.forW)} for, ${Math.round(b.againstW)} against`}>
-                      {b.score === null ? "no evidence" : `${Math.round(b.score * 100)}% for`}
+                      {b.score === null
+                        ? "no evidence"
+                        : `${b.pro.length + b.con.length} reason${b.pro.length + b.con.length === 1 ? "" : "s"} · ${Math.round(b.score * 100)}% for${b.forW + b.againstW < 120 ? " · thin" : ""}`}
                     </span>
                   </span>
                 </button>
@@ -319,6 +323,7 @@ export default function Sidebar() {
     Object.values(usePlan.getState().nodes).some((n) => n.kind === "step") ? "next" : "holes",
   );
   const [open, setOpenState] = useState(() => {
+    if (window.innerWidth < 768) return false; // phones: start folded, the board needs the room
     try {
       const saved = localStorage.getItem("blueprint-sidebar-open");
       if (saved !== null) return saved === "1";
@@ -327,6 +332,7 @@ export default function Sidebar() {
   });
   const setOpen = (v: boolean) => {
     setOpenState(v);
+    if (window.innerWidth < 768) return; // phones: not remembered
     try {
       localStorage.setItem("blueprint-sidebar-open", v ? "1" : "0");
     } catch {}

@@ -4,6 +4,7 @@
  */
 import { findHoles } from "./holes";
 import { membersOf } from "./frames";
+import { sheetTitle } from "./naming";
 import { balance, weight } from "./reason";
 import { BELIEF_KINDS, KIND_META, KINDS, STRENGTH, type Edge, type Frame, type PlanNode, relVerb } from "./types";
 
@@ -28,7 +29,7 @@ const indent = (s: string) => s.trim().split("\n").map((l) => `  > ${l}`).join("
 
 export function boardToMarkdown(project: string, nodes: Nodes, edges: Edges, withRequest = true, frames: Record<string, Frame> = {}): string {
   const list = Object.values(nodes);
-  const out: string[] = [`# ${project || "Untitled"}`, ""];
+  const out: string[] = [`# ${sheetTitle(project, nodes)}`, ""];
   out.push(`_Exported from Blueprint on ${new Date().toISOString().slice(0, 10)} · ${list.length} cards · ${Object.keys(edges).length} links_`, "");
   if (withRequest) out.push(CHECK_REQUEST, "");
 

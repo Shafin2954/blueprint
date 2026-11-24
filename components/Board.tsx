@@ -262,6 +262,8 @@ export default function Board() {
     if (g.mode === "drag" && !g.moved) usePlan.getState().reveal(g.id);
     if (g.mode === "pan" && !g.moved) {
       select(null);
+      // Phones: a tap on empty paper also folds the side panel.
+      if (window.innerWidth < 768) window.dispatchEvent(new CustomEvent("blueprint-sidebar-fold"));
       // Double-tap on touch screens, where dblclick isn't reliable.
       if (e.pointerType === "touch" && !usePlan.getState().viewing) {
         const now = e.timeStamp;

@@ -10,6 +10,7 @@
 import { useSyncExternalStore } from "react";
 import { usePlan } from "./store";
 import { historyImageRefs, loadWithoutHistory } from "./history";
+import { sheetTitle } from "./naming";
 import { collectGarbage, internImages, listStoredRefs } from "./images";
 import { KINDS, type Edge, type Frame, type Kind, type PlanNode, type View } from "./types";
 
@@ -66,22 +67,11 @@ function currentData(): SheetData {
   return { project, nodes, edges, frames, counters, view, dismissed };
 }
 
-/** An untitled sheet is listed by its first question, goal or claim, so the list isn't all "Untitled". */
-function displayName(project: string, nodes: Record<string, PlanNode>) {
-  if (project && project !== "Untitled") return project;
-  const pick = (k: string) =>
-    Object.values(nodes)
-      .filter((n) => n.kind === k && !/^New |^\[/.test(n.title))
-      .sort((a, b) => a.createdAt - b.createdAt)[0];
-  const n = pick("question") ?? pick("goal") ?? pick("claim") ?? pick("thought");
-  return n ? `${n.title.slice(0, 48)}${n.title.length > 48 ? "…" : ""}` : "Untitled";
-}
-
 /** Keep the open sheet's entry in the list current (name, size, last edit). */
 function touchCurrent() {
   const s = usePlan.getState();
   if (s.viewing) return; // a shared sheet being viewed isn't one of yours
-  const meta: SheetMeta = { id: s.sheetId, name: displayName(s.project, s.nodes), cards: Object.keys(s.nodes).length, updatedAt: Date.now() };
+  const meta: SheetMeta = { id: s.sheetId, name: sheetTitle(s.project, s.nodes), cards: Object.keys(s.nodes).length, updatedAt: Date.now() };
   const i = index.findIndex((m) => m.id === s.sheetId);
   if (i >= 0) index[i] = meta;
   else index.unshift(meta);

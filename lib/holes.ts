@@ -146,6 +146,8 @@ export function findHoles(nodes: Nodes, edges: Edges): Flag[] {
     // Evidence against a claim is reasoning working, not a hole (weighed elsewhere).
     // It's a plot hole only when you hold both sides at once.
     if (a.kind === "evidence" || b.kind === "evidence") continue;
+    // A risk "against" a goal is a threat, not a belief you hold.
+    if (a.kind === "risk" || b.kind === "risk") continue;
     if (weight(a) < 50 || weight(b) < 50) continue;
     flags.push({
       key: `contra:${e.id}`,
@@ -282,15 +284,6 @@ export function findHoles(nodes: Nodes, edges: Edges): Flag[] {
   }
 
   for (const e of list) {
-    if (e.kind === "evidence" && !e.link && !e.image && !e.body.trim() && !e.source?.trim()) {
-      flags.push({
-        key: `source:${e.id}`,
-        severity: "note",
-        title: "Where did this come from?",
-        detail: `${name(e)} has no "From", link, picture, or notes. Evidence you can't trace back is just a claim.`,
-        nodeIds: [e.id],
-      });
-    }
     if (e.kind === "question") {
       const answers = supportsIn(e.id).filter((a) => a.kind === "claim" || a.kind === "conclusion");
       const sure = answers.filter((a) => weight(a) >= 70);
@@ -304,6 +297,18 @@ export function findHoles(nodes: Nodes, edges: Edges): Flag[] {
         });
       }
     }
+  }
+
+  // Unsourced evidence: one grouped note rather than a flag per card (it's advice, not an error).
+  const unsourced = list.filter((e) => e.kind === "evidence" && !e.link && !e.image && !e.body.trim() && !e.source?.trim());
+  if (unsourced.length) {
+    flags.push({
+      key: `source:${unsourced.map((n) => n.id).sort().join(",")}`,
+      severity: "note",
+      title: "Where did this come from?",
+      detail: `${unsourced.map((n) => n.ref).join(", ")} ${unsourced.length > 1 ? "have" : "has"} no “From”, link, picture or notes. Evidence you can't trace back is just a claim — a word like “me” or “lease” is enough.`,
+      nodeIds: unsourced.map((n) => n.id),
+    });
   }
 
   const order: Record<Severity, number> = { hole: 0, gap: 1, note: 2 };

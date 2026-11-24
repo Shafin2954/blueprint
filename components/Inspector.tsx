@@ -84,7 +84,7 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
     <aside className="bp-panel pointer-events-auto ml-auto max-h-full w-[300px] max-w-[calc(100vw-32px)] overflow-y-auto p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto">
       <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
       <div className="mb-2 flex items-center justify-end md:hidden">
-        <button onClick={() => usePlan.getState().select(null)} className="bp-btn bp-mono px-3 py-1 text-[11px]" aria-label="Close the editor">
+        <button onClick={() => usePlan.getState().select(null)} className="bp-btn bp-mono px-3 py-1 text-[11px]" aria-label="Done" title="Close the editor">
           Done ✕
         </button>
       </div>
@@ -119,6 +119,58 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
         }}
         className="bp-input mt-1 resize-none text-[14px]"
       />
+      <div className="mt-3 grid grid-cols-2 gap-1.5">
+        {(node.kind === "goal" || node.kind === "milestone") && (
+          <button onClick={() => decompose(id)} className="bp-btn bp-btn-primary col-span-2" title="Scaffold a starter plan feeding this">
+            Decompose into steps
+          </button>
+        )}
+        {(node.kind === "evidence" || node.kind === "claim" || node.kind === "thought") && (
+          <button
+            onClick={() => {
+              const c = addNode(node.kind === "evidence" ? "claim" : "conclusion", node.x + 300, node.y, "");
+              connect(id, c, "supports");
+            }}
+            className="bp-btn col-span-2"
+            title="Start the next card in the chain, already linked"
+          >
+            {node.kind === "evidence" ? "What does this suggest? → claim" : "So what follows? → conclusion"}
+          </button>
+        )}
+        {node.kind === "assumption" && (
+          <button onClick={() => testAssumption(id)} className="bp-btn bp-btn-primary col-span-2" title="Add the cheapest step that would check this">
+            Add a test step
+          </button>
+        )}
+        {(node.kind === "spark" || node.kind === "thought") && (
+          <button onClick={() => promote(id)} className="bp-btn bp-btn-primary col-span-2" title="Turn this spark into a goal with a first step">
+            Promote to goal
+          </button>
+        )}
+        {node.kind === "step" && (
+          <button onClick={() => splitStep(id)} className="bp-btn" title="Too big? Split into two halves">
+            Split step
+          </button>
+        )}
+        <button
+          onClick={() => usePlan.getState().gather(id)}
+          className="bp-btn"
+          title="Gather this card (same as shift-click) to combine several into a conclusion"
+        >
+          {gathered ? "Ungather" : "Gather"}
+        </button>
+        <button onClick={onGenerate} className="bp-btn" title="Run the idea lenses on this card">
+          Generate from this
+        </button>
+        <button
+          onClick={() => startLinking(id)}
+          className="bp-btn"
+          title="Then tap the card this one leads to — easier than dragging on a phone"
+        >
+          Link to…
+        </button>
+        <button onClick={() => deleteWithUndo({ type: "node", id })} className="bp-btn bp-btn-danger">Delete</button>
+      </div>
       <label className="bp-label mt-3 block">{node.kind === "snippet" ? "Snippet" : "Notes"}</label>
       <textarea
         ref={notesRef}
@@ -223,58 +275,6 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
         </div>
       )}
 
-      <div className="mt-4 grid grid-cols-2 gap-1.5">
-        {(node.kind === "goal" || node.kind === "milestone") && (
-          <button onClick={() => decompose(id)} className="bp-btn bp-btn-primary col-span-2" title="Scaffold a starter plan feeding this">
-            Decompose into steps
-          </button>
-        )}
-        {(node.kind === "evidence" || node.kind === "claim" || node.kind === "thought") && (
-          <button
-            onClick={() => {
-              const c = addNode(node.kind === "evidence" ? "claim" : "conclusion", node.x + 300, node.y, "");
-              connect(id, c, "supports");
-            }}
-            className="bp-btn col-span-2"
-            title="Start the next card in the chain, already linked"
-          >
-            {node.kind === "evidence" ? "What does this suggest? → claim" : "So what follows? → conclusion"}
-          </button>
-        )}
-        {node.kind === "assumption" && (
-          <button onClick={() => testAssumption(id)} className="bp-btn bp-btn-primary col-span-2" title="Add the cheapest step that would check this">
-            Add a test step
-          </button>
-        )}
-        {(node.kind === "spark" || node.kind === "thought") && (
-          <button onClick={() => promote(id)} className="bp-btn bp-btn-primary col-span-2" title="Turn this spark into a goal with a first step">
-            Promote to goal
-          </button>
-        )}
-        {node.kind === "step" && (
-          <button onClick={() => splitStep(id)} className="bp-btn" title="Too big? Split into two halves">
-            Split step
-          </button>
-        )}
-        <button
-          onClick={() => usePlan.getState().gather(id)}
-          className="bp-btn"
-          title="Gather this card (same as shift-click) to combine several into a conclusion"
-        >
-          {gathered ? "Ungather" : "Gather"}
-        </button>
-        <button onClick={onGenerate} className="bp-btn" title="Run the idea lenses on this card">
-          Generate from this
-        </button>
-        <button
-          onClick={() => startLinking(id)}
-          className="bp-btn"
-          title="Then tap the card this one leads to — easier than dragging on a phone"
-        >
-          Link to…
-        </button>
-        <button onClick={() => deleteWithUndo({ type: "node", id })} className="bp-btn bp-btn-danger">Delete</button>
-      </div>
 
       </fieldset>
       {linkList("Fed by", links.fedBy)}

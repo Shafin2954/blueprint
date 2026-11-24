@@ -168,13 +168,13 @@ function NodeCard({
       aria-label={`${KIND_META[node.kind].label} ${node.ref}: ${node.title}`}
       aria-current={selected || undefined}
       className={`bp-card bp-${node.kind} absolute cursor-grab active:cursor-grabbing ${selected ? "bp-selected" : ""} ${done ? "bp-done" : ""} ${gathered ? "bp-gathered" : ""} ${spot ? "bp-spotlight" : ""}`}
-      style={{ left: node.x, top: node.y, width: NODE_W, opacity: dimmed ? 0.38 : 1 }}
+      style={{ left: node.x, top: node.y, width: NODE_W, opacity: dimmed ? 0.6 : 1 }}
     >
       <div className="flex h-[44px] items-center gap-2 px-3">
         <span className="bp-accent">
           <Symbol kind={node.kind} />
         </span>
-        <span className="bp-mono text-[10px] uppercase tracking-[0.18em] text-[var(--ink-dim)]">
+        <span className="bp-mono text-[11px] uppercase tracking-[0.14em] text-[var(--ink-dim)]">
           {KIND_META[node.kind].label} · {node.ref}
         </span>
         <span className="ml-auto flex items-center gap-1.5">
@@ -189,7 +189,7 @@ function NodeCard({
               disabled={readOnly}
               onClick={() => cycleStatus(node.id)}
               title="Cycle status: todo → doing → done"
-              className={`bp-mono rounded-sm border px-1.5 py-0.5 text-[9px] uppercase tracking-widest bp-status-${node.status}`}
+              className={`bp-hit bp-mono rounded-sm border px-1.5 py-0.5 text-[10px] uppercase tracking-wider bp-status-${node.status}`}
             >
               {node.status}
             </button>
@@ -282,7 +282,7 @@ function NodeCard({
         {(belief || weighed) && (
           <div className="mt-2.5 flex items-center gap-2">
             {belief && (
-              <span className="bp-mono shrink-0 text-[10px] text-[var(--ink-dim)]" title="How sure you are">
+              <span className="bp-mono shrink-0 text-[11px] text-[var(--ink-dim)]" title="How sure you are">
                 {Math.round(weight(node))}% sure
               </span>
             )}
@@ -291,7 +291,7 @@ function NodeCard({
                 <span className="flex h-[4px] flex-1 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--warn)_70%,transparent)]">
                   <span className="h-full bg-[var(--sup)]" style={{ width: `${(forW / (forW + againstW || 1)) * 100}%` }} />
                 </span>
-                <span className="bp-mono text-[9px] text-[var(--ink-faint)]">+{forW}/−{againstW}</span>
+                <span className="bp-mono text-[10px] text-[var(--ink-dim)]">+{forW} −{againstW}</span>
               </span>
             )}
           </div>

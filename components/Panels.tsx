@@ -5,6 +5,7 @@ import { usePlan, useReadOnly } from "@/lib/store";
 import { generate, type Draft, type GenMode } from "@/lib/generate";
 import { boardToMarkdown } from "@/lib/exportMd";
 import { encodeSheet, shareUrl } from "@/lib/shareLink";
+import { sheetTitle } from "@/lib/naming";
 import { deleteWithUndo } from "@/lib/history";
 import { membersOf } from "@/lib/frames";
 import { KIND_META, REL_META, STRENGTH, relVerb, type Rel, type Strength } from "@/lib/types";
@@ -161,12 +162,12 @@ export function Dump({ onClose }: { onClose: () => void }) {
 function ShareLink() {
   const [url, setUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"" | "ok" | "fail">("");
   const hasImages = usePlan((s) => Object.values(s.nodes).some((n) => n.image));
   const make = async () => {
     setBusy(true);
     const { project, nodes, edges, frames, counters } = usePlan.getState();
-    setUrl(shareUrl(await encodeSheet({ project, nodes, edges, frames, counters })));
+    setUrl(shareUrl(await encodeSheet({ project: sheetTitle(project, nodes), nodes, edges, frames, counters })));
     setBusy(false);
   };
   return (
@@ -187,15 +188,22 @@ function ShareLink() {
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(url);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 1600);
-                } catch {}
+                  setCopied("ok");
+                  setTimeout(() => setCopied(""), 1600);
+                } catch {
+                  setCopied("fail");
+                }
               }}
               className="bp-btn bp-btn-primary ml-auto"
             >
-              {copied ? "Copied ✓" : "Copy link"}
+              {copied === "ok" ? "Copied ✓" : "Copy link"}
             </button>
           </div>
+          {copied === "fail" && (
+            <p role="alert" className="text-[11px] text-[var(--warn)]">
+              Couldn&apos;t copy automatically — select the link above (tap it) and copy it.
+            </p>
+          )}
           <p className="text-[11px] text-[var(--ink-faint)]">The link is a snapshot: later edits need a new link.</p>
         </>
       ) : (
@@ -221,7 +229,7 @@ export function Share({ onClose }: { onClose: () => void }) {
     const blob = new Blob([md], { type: "text/markdown" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `${project.replace(/[^\w-]+/g, "-").toLowerCase() || "board"}.md`;
+    a.download = `${sheetTitle(project, nodes).replace(/[^\w-]+/g, "-").toLowerCase() || "board"}.md`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -284,7 +292,7 @@ export function EdgePanel({ id }: { id: string }) {
       <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
       <div className="flex items-center">
         <div className="bp-label">{fresh ? "New link — what does it mean?" : "Link"}</div>
-        <button onClick={() => usePlan.getState().select(null)} className="bp-btn bp-mono ml-auto px-2 py-0.5 text-[11px]" aria-label="Close link panel">
+        <button onClick={() => usePlan.getState().select(null)} className="bp-btn bp-mono ml-auto px-2 py-0.5 text-[11px]" aria-label="Done" title="Close the link panel">
           Done ✕
         </button>
       </div>
@@ -302,7 +310,7 @@ export function EdgePanel({ id }: { id: string }) {
               rel === r ? "bp-rel-active" : "border-[var(--line)] text-[var(--ink-faint)]"
             }`}
           >
-            {REL_META[r].label}
+            {r === "supports" && b?.kind === "question" ? "Answers" : REL_META[r].label}
           </button>
         ))}
       </div>
@@ -350,7 +358,7 @@ export function FramePanel({ id }: { id: string }) {
       <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
       <div className="flex items-center">
         <label className="bp-label block" htmlFor={`frame-${id}`}>Frame label</label>
-        <button onClick={() => usePlan.getState().select(null)} className="bp-btn bp-mono ml-auto px-2 py-0.5 text-[11px]" aria-label="Close frame panel">
+        <button onClick={() => usePlan.getState().select(null)} className="bp-btn bp-mono ml-auto px-2 py-0.5 text-[11px]" aria-label="Done" title="Close the frame panel">
           Done ✕
         </button>
       </div>
