@@ -9,6 +9,7 @@ import { ANCHOR_Y, NODE_W, STRENGTH, type PlanNode } from "@/lib/types";
 import { saveImage, isUrl } from "@/lib/image";
 import NodeCard from "./NodeCard";
 import { NEXT_KIND, nearestTo } from "@/lib/keyboard";
+import { routeLink, type Route } from "@/lib/routing";
 import { MIN_FRAME, membersOf } from "@/lib/frames";
 import type { Frame } from "@/lib/types";
 
@@ -62,6 +63,21 @@ export default function Board() {
     }
     return m;
   }, [flags]);
+
+  // Links detour around cards in their way; recomputed only when cards or links change.
+  const routes = useMemo(() => {
+    const out = new Map<string, Route>();
+    const list = Object.values(nodes);
+    if (list.length > 400) return out; // very large sheets: plain curves
+    for (const e of Object.values(edges)) {
+      const a = nodes[e.from];
+      const b = nodes[e.to];
+      if (!a || !b) continue;
+      const others = list.filter((n) => n.id !== a.id && n.id !== b.id);
+      out.set(e.id, routeLink({ x: a.x + NODE_W, y: a.y + ANCHOR_Y }, { x: b.x - 4, y: b.y + ANCHOR_Y }, others));
+    }
+    return out;
+  }, [nodes, edges]);
 
   const lit = useMemo(
     () => (selection?.type === "node" ? chain(selection.id, edges) : null),
@@ -386,8 +402,7 @@ export default function Board() {
             const a = nodes[e.from];
             const b = nodes[e.to];
             if (!a || !b) return null;
-            const d = edgePath(a.x + NODE_W, a.y + ANCHOR_Y, b.x - 4, b.y + ANCHOR_Y);
-            const mid = edgeMid(a.x + NODE_W, a.y + ANCHOR_Y, b.x - 4, b.y + ANCHOR_Y);
+            const { d, mid } = routes.get(e.id) ?? { d: edgePath(a.x + NODE_W, a.y + ANCHOR_Y, b.x - 4, b.y + ANCHOR_Y), mid: edgeMid(a.x + NODE_W, a.y + ANCHOR_Y, b.x - 4, b.y + ANCHOR_Y) };
             const sel = selection?.type === "edge" && selection.id === e.id;
             const on = lit?.edges.has(e.id);
             const rel = e.rel ?? "feeds";

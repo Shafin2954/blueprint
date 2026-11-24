@@ -248,6 +248,7 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
             if (!d || typeof d !== "object" || !d.nodes || !d.edges) toast("That file doesn't look like a Blueprint sheet.");
             else if (newSheet({ project: d.project || f.name.replace(/\.blueprint\.json$|\.json$/, ""), nodes: d.nodes, edges: d.edges, frames: d.frames ?? {}, counters: d.counters ?? {} })) {
               fitToScreen();
+              window.dispatchEvent(new CustomEvent("blueprint-close-overlay"));
               toast(`Imported “${d.project || f.name}” as a new sheet`);
               // Move embedded images into the image store (safe if the user keeps working).
               internOpenSheet().catch(() => {});
@@ -450,7 +451,10 @@ export default function Planner() {
     window.addEventListener("blueprint-storage-full", on);
     window.addEventListener("blueprint-help", help);
     window.addEventListener("hashchange", onHash);
+    const closeOverlay = () => setOverlay((o) => ({ ...o, kind: null }));
+    window.addEventListener("blueprint-close-overlay", closeOverlay);
     return () => {
+      window.removeEventListener("blueprint-close-overlay", closeOverlay);
       window.removeEventListener("blueprint-storage-full", on);
       window.removeEventListener("blueprint-help", help);
       window.removeEventListener("hashchange", onHash);
