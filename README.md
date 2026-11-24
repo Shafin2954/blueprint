@@ -16,6 +16,8 @@ A place for your own brain to play: no AI inside, no network calls, nothing preb
 
 ## What it does
 
+**Type instead of click (desktop).** Press **/** and type into the command bar: `/evidence Rent is cheaper, conf: 70, from: Zillow, for: C-01`, `/claim Move, answers: Q-01`, `/step Book a week there, after: last, status: doing`, `/link E-01 C-02 contradicts`. A preview shows what Enter will do; cards are placed by what they link to.
+
 **Think loosely.** Press **D** and dump whatever's on your mind, one line per card. Double-click the paper for a single thought.
 
 **Collect what you've found.** *Evidence* cards hold what you found or observed. Attach a picture (button, paste, or drop it on the paper) or a source link. Dropping a link onto the paper makes an evidence card for it.

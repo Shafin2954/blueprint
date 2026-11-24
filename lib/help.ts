@@ -273,8 +273,14 @@ export const HELP: HelpEntry[] = [
     keywords: "sheet board file project multiple new open rename duplicate delete switch",
   },
   {
+    id: "command", group: "Tools", title: "Command bar",
+    summary: "Type cards at the bottom of the screen: /evidence Rent is cheaper, conf: 70, for: C-01 (desktop).",
+    body: "Press / anywhere on the sheet to jump there. Start with a card type — /thought /spark /question /assumption /evidence /claim /conclusion /goal /milestone /step /risk /snippet, or short forms like /e /c /q /g — then the title. Add fields after commas: desc: (notes), conf: (how sure, 0–100), from: (source), link: (a URL), status: (todo/doing/done). Link it as you go: for: C-01 (supports), against: C-01 (contradicts), answers: Q-01, to: G-01 (feeds), after: T-01 (that step comes first), because: E-02 (that card supports this one); several refs are fine (for: C-01 C-02), and “last” means the card you just made. strength: weak|strong sets the links' weight. /link E-01 C-02 contradicts links two existing cards. No slash = a quick thought. The line above the bar shows what Enter will do; Tab completes a command; ↑ brings back earlier commands; each command is one undo step.",
+    keywords: "command bar type slash shortcut syntax keyboard quick add",
+  },
+  {
     id: "find", group: "Tools", title: "Find a card",
-    summary: "Ctrl/⌘+K or / — search titles, notes, refs and sources.",
+    summary: "Ctrl/⌘+K (or / on phones) — search titles, notes, refs and sources.",
     body: "Type any words, a ref like E-02, or a source name. Arrow keys move through results, Enter jumps to the card and opens it. With nothing typed, it lists your most recent cards. The magnifier in the toolbar opens it too.",
     keywords: "search find jump locate ref",
   },

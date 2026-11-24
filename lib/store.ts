@@ -87,7 +87,7 @@ interface PlanState {
   /** Pan just enough that a card isn't hidden behind the panels. */
   reveal: (id: string) => void;
   /** Add a card in the nearest free space (next to the selected card, or mid-screen). */
-  addCardNear: (kind: Kind, title?: string) => string;
+  addCardNear: (kind: Kind, title?: string, at?: { x: number; y: number }) => string;
   /** The link just made by a gesture: its panel opens so its meaning can be chosen. */
   freshEdge: string | null;
   /** Select the link just created and flag it, so its panel asks what it means. */
@@ -465,12 +465,15 @@ export const usePlan = create<PlanState>()(
         if (dx || dy) set({ view: { k, x: x + dx, y: y + dy } });
       },
 
-      addCardNear: (kind, title) => {
+      addCardNear: (kind, title, at) => {
         const s = get();
         const sel = s.selection?.type === "node" ? s.nodes[s.selection.id] : undefined;
         let x: number;
         let y: number;
-        if (sel) {
+        if (at) {
+          x = at.x;
+          y = at.y;
+        } else if (sel) {
           x = sel.x + 300;
           y = sel.y;
         } else {

@@ -16,6 +16,7 @@ import { embedImages } from "@/lib/images";
 import { Sheets } from "./Sheets";
 import { PopMenu } from "./PopMenu";
 import { Find } from "./Find";
+import { CommandBar } from "./CommandBar";
 import Board from "./Board";
 import Inspector from "./Inspector";
 import { Symbol } from "./NodeCard";
@@ -614,7 +615,9 @@ export default function Planner() {
         toggle("gen");
       } else if (e.key === "/") {
         e.preventDefault();
-        toggle("find");
+        // Desktop: jump to the command bar, ready for a command. Phones: Find.
+        if (window.innerWidth >= 768 && !s.viewing) window.dispatchEvent(new CustomEvent("blueprint-command-focus", { detail: "/" }));
+        else toggle("find");
       } else if (e.key === "?") {
         e.preventDefault();
         toggle("help");
@@ -683,7 +686,9 @@ export default function Planner() {
         )}
         <div className="flex flex-col items-center gap-2"><GatherBar /></div>
         <footer className="flex items-end justify-between gap-3">
-          <span />
+          <div className="hidden min-w-0 flex-1 justify-center md:flex">
+            <CommandBar />
+          </div>
           <TitleBlock onSheets={() => setOverlay((o) => ({ kind: "sheets", n: o.n + 1 }))} />
         </footer>
       </div>
