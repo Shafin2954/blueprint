@@ -1,5 +1,6 @@
 "use client";
 
+import { useJustOpened } from "@/lib/ghost";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePlan, useReadOnly } from "@/lib/store";
 import { generate, type Draft, type GenMode } from "@/lib/generate";
@@ -287,6 +288,7 @@ export function EdgePanel({ id }: { id: string }) {
   const { setRel, setStrength } = usePlan.getState();
   const fresh = usePlan((s) => s.freshEdge === id);
   const panelRef = useRef<HTMLElement>(null);
+  const quiet = useJustOpened(id);
   useEffect(() => {
     if (fresh) panelRef.current?.querySelector<HTMLButtonElement>(".bp-rel-active")?.focus();
   }, [fresh]);
@@ -296,7 +298,7 @@ export function EdgePanel({ id }: { id: string }) {
   const b = nodes[edge.to];
   const rel = edge.rel ?? "feeds";
   return (
-    <aside ref={panelRef} className="bp-panel pointer-events-auto ml-auto w-[300px] max-w-[calc(100vw-32px)] p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto">
+    <aside ref={panelRef} className={`bp-panel ml-auto w-[300px] ${quiet ? "pointer-events-none" : "pointer-events-auto"} max-w-[calc(100vw-32px)] p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto`}>
       <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
       <div className="flex items-center">
         <div className="bp-label">{fresh ? "New link — what does it mean?" : "Link"}</div>
@@ -359,10 +361,11 @@ export function FramePanel({ id }: { id: string }) {
   const readOnly = useReadOnly();
   const frame = usePlan((s) => s.frames[id]);
   const nodes = usePlan((s) => s.nodes);
+  const quiet = useJustOpened(id);
   if (!frame) return null;
   const members = membersOf(frame, nodes).map((m) => nodes[m]);
   return (
-    <aside className="bp-panel pointer-events-auto ml-auto w-[300px] max-w-[calc(100vw-32px)] p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto">
+    <aside className={`bp-panel ml-auto w-[300px] max-w-[calc(100vw-32px)] p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto ${quiet ? "pointer-events-none" : "pointer-events-auto"}`}>
       <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
       <div className="flex items-center">
         <label className="bp-label block" htmlFor={`frame-${id}`}>Frame label</label>

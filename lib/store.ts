@@ -515,20 +515,21 @@ export const usePlan = create<PlanState>()(
         const minY = Math.min(...list.map((n) => n.y));
         const maxX = Math.max(...list.map((n) => n.x + 232));
         const maxY = Math.max(...list.map((n) => n.y + 140));
-        const top = w < 768 ? 150 : 120;
-        const bottom = w < 768 ? 24 : 90; // desktop: leave room for the command bar
-        const aw = Math.max(200, w - padLeft - padRight - 40);
+        const phone = w < 768;
+        const top = phone ? 150 : 120;
+        const bottom = phone ? 24 : 90; // desktop: leave room for the command bar
+        const side = phone ? 16 : 40;
+        const aw = Math.max(200, w - padLeft - padRight - side);
         const ah = Math.max(200, h - top - bottom);
-        // On phones, never zoom out so far that card text is unreadable; pan instead.
-        const minK = minZoom ?? (w < 768 ? 0.55 : 0.3);
-        const k = Math.min(1, Math.max(minK, Math.min(aw / (maxX - minX), ah / (maxY - minY))));
-        set({
-          view: {
-            k,
-            x: padLeft + (aw - (maxX - minX) * k) / 2 - minX * k + 20,
-            y: top + (ah - (maxY - minY) * k) / 2 - minY * k,
-          },
-        });
+        // On phones, never zoom out so far that card text is unreadable (titles stay ≥10px); pan instead.
+        const minK = Math.max(minZoom ?? 0.3, phone ? 0.72 : 0);
+        const cw = maxX - minX;
+        const ch = maxY - minY;
+        const k = Math.min(1, Math.max(minK, Math.min(aw / cw, ah / ch)));
+        // If it doesn't all fit at this zoom, start at the top-left rather than cutting both edges.
+        const ox = cw * k <= aw ? (aw - cw * k) / 2 : 0;
+        const oy = ch * k <= ah ? (ah - ch * k) / 2 : 0;
+        set({ view: { k, x: padLeft + ox - minX * k + side / 2, y: top + oy - minY * k } });
       },
 
       importPlan: (data) => {

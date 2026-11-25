@@ -15,6 +15,10 @@ const STOP = new Set(
     "always never look feel feels felt want need know think maybe something nothing anything stuff lot lots keep kept min mins minute minutes").split(" "),
 );
 
+/** A readable word for each stem seen (the shortest original form), for display. */
+const surface = new Map<string, string>();
+export const display = (stem: string) => surface.get(stem) ?? stem;
+
 export function words(text: string): Set<string> {
   const out = new Set<string>();
   for (const raw of text.toLowerCase().match(/[a-z][a-z'-]{2,}/g) ?? []) {
@@ -22,7 +26,11 @@ export function words(text: string): Set<string> {
     if (STOP.has(w)) continue;
     // Crude stemming: enough to match "prices" with "pricing".
     if (w.length > 4) w = w.replace(/(ings?|ed|es|(?<![su])s)$/, "");
-    if (w.length >= 3 && !STOP.has(w)) out.add(w);
+    if (w.length >= 3 && !STOP.has(w)) {
+      out.add(w);
+      const seen = surface.get(w);
+      if (!seen || raw.length < seen.length) surface.set(w, raw.replace(/'s$/, ""));
+    }
   }
   return out;
 }
@@ -56,7 +64,7 @@ export function suggestLinks(nodes: Nodes, edges: Edges, dismissed: Set<string>,
       if (!shared.length) continue;
       // Rare shared words count more than common ones.
       const score = shared.reduce((s, w) => s + 1 / (df.get(w) ?? 1) + (w.length >= 6 ? 0.3 : 0), 0);
-      if (score >= 0.8) out.push({ a: a.id, b: b.id, shared: shared.slice(0, 3), score });
+      if (score >= 0.8) out.push({ a: a.id, b: b.id, shared: shared.slice(0, 3).map(display), score });
     }
   }
   return out.sort((x, y) => y.score - x.score).slice(0, limit);
@@ -97,7 +105,7 @@ export function islands(nodes: Nodes, edges: Edges): Island[] {
       .sort((a, b) => (nb.get(b.id)?.length ?? 0) - (nb.get(a.id)?.length ?? 0) || rank(b) - rank(a))[0];
     const freq = new Map<string, number>();
     for (const id of ids) for (const w of words(`${nodes[id].title} ${nodes[id].body}`)) freq.set(w, (freq.get(w) ?? 0) + 1);
-    const theme = [...freq].filter(([, c]) => c > 1).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([w]) => w);
+    const theme = [...freq].filter(([, c]) => c > 1).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([w]) => display(w));
     out.push({ ids, hub, theme });
   }
   return out.sort((a, b) => b.ids.length - a.ids.length);

@@ -69,3 +69,9 @@ describe("command bar parser", () => {
     expect(describeAction(a, b.nodes, null)).toBe("Add evidence “Walks” · 80% sure · supports C-01 “Get a dog” · supports C-09");
   });
 });
+
+describe("double slash", () => {
+  it("treats //claim like /claim", () => {
+    expect(parseCommand("//claim Test").action).toMatchObject({ type: "add", kind: "claim", title: "Test" });
+  });
+});

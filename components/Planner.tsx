@@ -28,9 +28,9 @@ import type { Starter } from "@/lib/starters";
 import Sidebar from "./Sidebar";
 
 /** Show the whole sheet. When the user asks (Fit, Tidy, opening a shared link) it really fits, even if small. */
-const fitToScreen = () => {
+const fitToScreen = (minK = 0.25) => {
   const s = usePlan.getState();
-  if (window.innerWidth >= 900) return s.fit(window.innerWidth, window.innerHeight, 320, s.selection ? 330 : 20, 0.25);
+  if (window.innerWidth >= 900) return s.fit(window.innerWidth, window.innerHeight, 320, s.selection ? 330 : 20, minK);
   s.select(null);
   s.fit(window.innerWidth, window.innerHeight, 0, 0, 0.25);
 };
@@ -132,7 +132,7 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
     return (
       <div className="bp-panel pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto whitespace-nowrap p-1.5 [&>*]:shrink-0">
         <button onClick={() => open("find")} className="bp-btn">Find</button>
-        <button onClick={fitToScreen} className="bp-tool">Fit</button>
+        <button onClick={() => fitToScreen()} className="bp-tool">Fit</button>
         <button onClick={() => open("share")} className="bp-tool">Markdown</button>
         <button onClick={() => open("help")} className="bp-btn bp-mono h-[30px] w-[30px] rounded-full p-0 text-[13px]" aria-label="Help">?</button>
       </div>
@@ -145,10 +145,10 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
     checkpoint();
     // Remember who was in each frame, lay out, then shrink-wrap the frames again.
     const members = Object.fromEntries(Object.values(st.frames).map((f) => [f.id, membersOf(f, st.nodes)]));
-    st.setPositions(tidy(st.nodes, st.edges, Object.values(members)));
+    st.setPositions(tidy(st.nodes, st.edges, Object.values(members), { vertical: window.innerWidth < 768 }));
     st.refitFrames(members);
     checkpoint();
-    fitToScreen();
+    fitToScreen(0.6); // tidy shouldn't shrink text to nothing; pan for the rest
     toastUndo("Tidied the sheet");
   };
 
@@ -168,6 +168,7 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
           title="Add a card"
           items={KINDS.map((k) => ({
             label: KIND_META[k].label,
+            desc: KIND_META[k].hint,
             icon: <span className={`bp-${k} bp-accent`}><Symbol kind={k} /></span>,
             run: () => usePlan.getState().addCardNear(k),
           }))}
@@ -231,7 +232,7 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
           { label: "Generate ideas", hint: "G", run: () => open("gen") },
           { label: "Frame cards", hint: "F", run: frameNow },
           { label: "Tidy layout", hint: "", run: tidyNow },
-          { label: "Fit to screen", hint: "", run: fitToScreen },
+          { label: "Fit to screen", hint: "", run: () => fitToScreen() },
           { label: "Export file", hint: "", run: exportPlan },
           { label: "Import file", hint: "", run: () => file.current?.click() },
         ]}
@@ -449,6 +450,9 @@ export default function Planner() {
   useEffect(
     () =>
       usePlan.subscribe((st, prev) => {
+        // The first card on an empty sheet: the Start panel has done its job.
+        if (Object.keys(prev.nodes).length === 0 && Object.keys(st.nodes).length > 0 && st.sheetId === prev.sheetId)
+          setOverlay((o) => (o.kind === "start" ? { ...o, kind: null } : o));
         if (window.innerWidth >= 768 || !st.selection || st.selection === prev.selection) return;
         setOverlay((o) => (o.kind ? { ...o, kind: null } : o));
         window.dispatchEvent(new CustomEvent("blueprint-sidebar-fold"));

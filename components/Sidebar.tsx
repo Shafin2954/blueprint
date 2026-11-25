@@ -174,6 +174,16 @@ function Meter({ score }: { score: number | null }) {
   );
 }
 
+const rank = (b: ReturnType<typeof balance>) => (b.score === null ? 0 : isThin(b) ? 1 : 2);
+
+const reasonsText = (b: ReturnType<typeof balance>) => {
+  const n = b.pro.length + b.con.length;
+  if (isThin(b)) return `${n} reason${n === 1 ? "" : "s"} · too little to judge`;
+  if (!b.con.length) return `${n} reasons, none against`;
+  if (!b.pro.length) return `${n} reasons, none for`;
+  return `${b.pro.length} for, ${b.con.length} against · ${Math.round(b.score! * 100)}% of weight for`;
+};
+
 /** Questions with several candidate answers, each weighed by what supports or contradicts it. */
 function Questions() {
   const nodes = usePlan((s) => s.nodes);
@@ -187,7 +197,8 @@ function Questions() {
           .map((e) => nodes[e.from])
           .filter((a) => a.kind === "claim" || a.kind === "conclusion")
           .map((a) => ({ a, b: balance(a.id, nodes, edges) }))
-          .sort((x, y) => (y.b.forW - y.b.againstW) - (x.b.forW - x.b.againstW));
+          // Judgeable answers first (by net evidence), then thin ones, then those with none.
+          .sort((x, y) => rank(y.b) - rank(x.b) || (y.b.forW - y.b.againstW) - (x.b.forW - x.b.againstW));
         return { q, answers };
       })
       .filter((x) => x.answers.length > 0);
@@ -227,9 +238,7 @@ function Questions() {
                     <span className="bp-mono shrink-0 text-[9px] text-[var(--ink-faint)]" title={`Evidence weight: ${Math.round(b.forW)} for, ${Math.round(b.againstW)} against`}>
                       {b.score === null
                         ? "no evidence"
-                        : isThin(b)
-                          ? `${b.pro.length + b.con.length} reason${b.pro.length + b.con.length === 1 ? "" : "s"} · too little to judge`
-                          : `${b.pro.length + b.con.length} reasons · ${Math.round(b.score * 100)}% for`}
+                        : reasonsText(b)}
                     </span>
                   </span>
                 </button>

@@ -81,3 +81,15 @@ describe("tidy", () => {
     }
   });
 });
+
+describe("tidy on a phone", () => {
+  it("lays every starter out two cards wide, without overlaps", () => {
+    for (const st of STARTERS) {
+      const d = st.build();
+      const pos = tidy(d.nodes, d.edges, [], { vertical: true });
+      expect(overlaps(pos, d.nodes), st.id).toBeNull();
+      const xs = new Set(Object.values(pos).map((p) => p.x));
+      expect(Math.max(...xs) - Math.min(...xs)).toBeLessThanOrEqual(2 * 260);
+    }
+  });
+});

@@ -31,7 +31,7 @@ export function estimateHeight(n: PlanNode): number {
  * @param frameMembers cards grouped by frame: each frame's cards are laid out as their own
  *   block (so a frame can be shrink-wrapped around exactly its cards afterwards).
  */
-export function tidy(nodes: Nodes, edges: Edges, frameMembers: string[][] = []): Positions {
+export function tidy(nodes: Nodes, edges: Edges, frameMembers: string[][] = [], opts: { vertical?: boolean } = {}): Positions {
   const ids = Object.keys(nodes);
   if (!ids.length) return {};
   const valid = Object.values(edges).filter((e) => nodes[e.from] && nodes[e.to] && e.from !== e.to);
@@ -121,6 +121,19 @@ export function tidy(nodes: Nodes, edges: Edges, frameMembers: string[][] = []):
         index();
       }
     }
+    if (opts.vertical) {
+      // Narrow screens: layers run top to bottom, two cards to a row, so it reads like a page.
+      for (const c of filled) {
+        for (let i = 0; i < c.length; i += 2) {
+          const row = c.slice(i, i + 2);
+          row.forEach((id, j) => (pos[id] = { x: snap(j * (NODE_W + 24) + (row.length === 1 ? (NODE_W + 24) / 2 : 0)), y: snap(top) }));
+          top += Math.max(...row.map((id) => estimateHeight(nodes[id]))) + GAP_Y;
+        }
+        top += 24;
+      }
+      top += GROUP_GAP - 24 - GAP_Y;
+      continue;
+    }
     const heights = filled.map((c) => c.reduce((s, id) => s + estimateHeight(nodes[id]), 0) + GAP_Y * Math.max(0, c.length - 1));
     const tallest = Math.max(...heights);
     filled.forEach((c, ci) => {
@@ -134,7 +147,7 @@ export function tidy(nodes: Nodes, edges: Edges, frameMembers: string[][] = []):
   }
 
   // Unlinked cards: a grid underneath, oldest first.
-  const perRow = Math.max(3, Math.min(6, Math.ceil(Math.sqrt(loose.length * 2))));
+  const perRow = opts.vertical ? 2 : Math.max(3, Math.min(6, Math.ceil(Math.sqrt(loose.length * 2))));
   loose.sort((a, b) => nodes[a].createdAt - nodes[b].createdAt);
   let rowH = 0;
   loose.forEach((id, i) => {
@@ -142,7 +155,7 @@ export function tidy(nodes: Nodes, edges: Edges, frameMembers: string[][] = []):
       top += rowH + GAP_Y;
       rowH = 0;
     }
-    pos[id] = { x: snap((i % perRow) * COL), y: snap(top) };
+    pos[id] = { x: snap((i % perRow) * (opts.vertical ? NODE_W + 24 : COL)), y: snap(top) };
     rowH = Math.max(rowH, estimateHeight(nodes[id]));
   });
 

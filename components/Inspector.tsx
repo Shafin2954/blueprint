@@ -1,5 +1,6 @@
 "use client";
 
+import { useJustOpened } from "@/lib/ghost";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { saveImage, isUrl } from "@/lib/image";
 import { useImageSrc } from "@/lib/images";
@@ -17,6 +18,7 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
     usePlan.getState();
   const fileRef = useRef<HTMLInputElement>(null);
   const readOnly = useReadOnly();
+  const quiet = useJustOpened(id);
   const thumb = useImageSrc(node?.image);
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
@@ -58,21 +60,23 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
     items.length ? (
       <div className="mt-3">
         <div className="bp-label">{label}</div>
-        <ul className="mt-1 space-y-0.5">
+        <ul className="mt-1 space-y-0.5 [@media(pointer:coarse)]:space-y-1">
           {items.map(({ e, n }) =>
             n ? (
-              <li key={e.id} className="group flex items-center gap-2 text-[12px]">
-                <button onClick={() => focus(n.id, window.innerWidth, window.innerHeight)} className="flex min-w-0 items-center gap-1.5 text-left text-[var(--ink-dim)] hover:text-[var(--ink)]">
+              <li key={e.id} className="group flex items-center gap-1 text-[12px] [@media(pointer:coarse)]:min-h-[40px]">
+                <button onClick={() => focus(n.id, window.innerWidth, window.innerHeight)} title={`Go to ${n.ref}`} className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch text-left text-[var(--ink-dim)] hover:text-[var(--ink)]">
                   <span className={`bp-${n.kind} bp-accent`}><Symbol kind={n.kind} size={11} /></span>
                   <span className="bp-mono whitespace-nowrap text-[10px]">{n.ref}</span>
-                  {e.rel && e.rel !== "feeds" && (
-                    <span className={`bp-mono text-[9px] uppercase ${e.rel === "contradicts" ? "text-[var(--warn)]" : "text-[var(--sup)]"}`}>
-                      {relVerb(e.rel, nodes[e.to]?.kind) === "answers" ? "Answers" : REL_META[e.rel].label}
-                    </span>
-                  )}
                   <span className="truncate">{n.title}</span>
                 </button>
-                {!readOnly && <button onClick={() => deleteWithUndo({ type: "edge", id: e.id })} title="Unlink" aria-label={`Unlink ${n.ref}`} className="ml-auto text-[var(--ink-faint)] opacity-0 hover:text-[var(--warn)] group-hover:opacity-100 focus:opacity-100 [@media(pointer:coarse)]:opacity-100">✕</button>}
+                <button
+                  onClick={() => usePlan.getState().select({ type: "edge", id: e.id })}
+                  title="Change what this link means"
+                  className={`bp-mono shrink-0 self-stretch rounded-sm border border-[var(--line)] px-1.5 text-[9px] uppercase hover:border-[var(--ink-dim)] ${e.rel === "contradicts" ? "text-[var(--warn)]" : e.rel === "supports" ? "text-[var(--sup)]" : "text-[var(--ink-faint)]"}`}
+                >
+                  {relVerb(e.rel, nodes[e.to]?.kind) === "answers" ? "Answers" : REL_META[e.rel ?? "feeds"].label} ▾
+                </button>
+                {!readOnly && <button onClick={() => deleteWithUndo({ type: "edge", id: e.id })} title="Unlink" aria-label={`Unlink ${n.ref}`} className="shrink-0 self-stretch px-1 text-[var(--ink-faint)] opacity-0 hover:text-[var(--warn)] group-hover:opacity-100 focus:opacity-100 [@media(pointer:coarse)]:min-w-[40px] [@media(pointer:coarse)]:opacity-100">✕</button>}
               </li>
             ) : null,
           )}
@@ -81,13 +85,14 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
     ) : null;
 
   return (
-    <aside className="bp-panel pointer-events-auto ml-auto max-h-full w-[300px] max-w-[calc(100vw-32px)] overflow-y-auto p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto">
-      <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
+    <aside className={`bp-panel ml-auto max-h-full ${quiet ? "pointer-events-none" : "pointer-events-auto"} w-[300px] max-w-[calc(100vw-32px)] overflow-y-auto p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto`}>
+      {/* Outside the fieldset: closing must work in a read-only shared sheet too. */}
       <div className="mb-2 flex items-center justify-end md:hidden">
         <button onClick={() => usePlan.getState().select(null)} className="bp-btn bp-mono px-3 py-1 text-[11px]" aria-label="Done" title="Close the editor">
           Done ✕
         </button>
       </div>
+      <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
       <div className="flex items-center gap-2">
         <span className={`bp-${node.kind} bp-accent`}><Symbol kind={node.kind} size={16} /></span>
         <span className="bp-mono whitespace-nowrap text-[11px] uppercase tracking-[0.2em] text-[var(--ink-dim)]">{node.ref}</span>

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 /**
  * Ghost-click guard. On a phone, tapping a card opens a bottom sheet; the browser's
  * click for that same tap then lands on whatever button just appeared under the finger
@@ -38,4 +39,22 @@ export function installGhostGuard() {
     },
     true,
   );
+}
+
+/**
+ * A panel that slides in under the finger on a touch screen catches the tail of that
+ * same tap (the browser's synthesized mousedown opens a <select>, focuses a button).
+ * Returns true for a moment after `key` changes, on coarse pointers: render the panel
+ * with pointer-events off meanwhile.
+ */
+export function useJustOpened(key: string): boolean {
+  const coarse = () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+  const [st, setSt] = useState(() => ({ key, quiet: coarse() }));
+  if (st.key !== key) setSt({ key, quiet: coarse() }); // a different card/link opened: quiet again
+  useEffect(() => {
+    if (!st.quiet) return;
+    const t = setTimeout(() => setSt((s) => (s === st ? { ...s, quiet: false } : s)), 450);
+    return () => clearTimeout(t);
+  }, [st]);
+  return st.key === key && st.quiet;
 }

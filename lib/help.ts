@@ -51,7 +51,7 @@ export const HELP: HelpEntry[] = [
   {
     id: "question", group: "Cards", kind: "question", title: "Question",
     summary: "Something you don't know yet.",
-    body: "Link possible answers (claims) into a question — those links read “answers”. The Big picture tab then ranks the answers by the evidence behind each (shown as “% for”), next to how sure you said you are. A question with no links and no notes gets flagged as open.",
+    body: "Link possible answers (claims) into a question — those links read “answers”. The Big picture tab then ranks the answers by the evidence behind each (how much of the linked weight is for it; “too little to judge” until there are at least two reasons), next to how sure you said you are. A question with no links and no notes gets flagged as open.",
     demo: [
       [c("claim", "The dog took it", { sure: 80 }), "supports", c("question", "Who took the cake?")],
       [c("claim", "My brother took it", { sure: 40 }), "supports", c("question", "Who took the cake?")],

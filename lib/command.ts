@@ -105,7 +105,8 @@ function rel(word: string | undefined): Rel | null {
 }
 
 export function parseCommand(input: string): Parsed {
-  const text = input.trim();
+  // "//goal" happens when "/" opened the bar and then the command was typed with its slash.
+  const text = input.trim().replace(/^\/{2,}/, "/");
   if (!text) return { action: null, errors: [] };
   const errors: string[] = [];
 

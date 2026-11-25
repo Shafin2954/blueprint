@@ -6,7 +6,7 @@
  * you said you are, never at what the words mean. It's a mirror, not a judge.
  */
 import { downstream, upstream } from "./graph";
-import { balance, weight } from "./reason";
+import { balance, isThin, weight } from "./reason";
 import type { Edge, PlanNode } from "./types";
 
 type Nodes = Record<string, PlanNode>;
@@ -105,12 +105,12 @@ export function findHoles(nodes: Nodes, edges: Edges): Flag[] {
       });
     }
 
-    if (n.kind === "risk" && !n.body.trim()) {
+    if (n.kind === "risk" && !n.body.trim() && !/\s[—–-]\s|→|;|\b(plan|fix|mitigate|counter):/i.test(n.title) && !outs(n.id).concat(ins(n.id)).some((e) => nodes[e.from]?.kind === "step")) {
       flags.push({
         key: `counter:${n.id}`,
         severity: "gap",
         title: "Risk without a counter-move",
-        detail: `${name(n)} names the danger but not what you'll do about it.`,
+        detail: `${name(n)} names the danger but not what you'll do about it. Write the counter-move in its Notes, or link a step that handles it.`,
         nodeIds: [n.id],
       });
     }
@@ -229,13 +229,24 @@ export function findHoles(nodes: Nodes, edges: Edges): Flag[] {
       }
     }
 
-    if (bal.score !== null && bal.score < 0.5 && sure >= 65) {
+    // Belief and evidence pointing different ways (either way round), once there's enough to judge.
+    const evid = bal.score === null ? null : Math.round(bal.score * 100);
+    const doubtful = evid !== null && !isThin(bal) && Math.abs(sure - evid) > 15;
+    if (doubtful && sure > 50 && evid! < 50) {
       flags.push({
         key: `belief:${n.id}:${bal.con.map((c) => c.id).join(",")}`,
         severity: "hole",
         title: "Belief vs. evidence",
-        detail: `You're ${pct(n)} sure of ${name(n)}, yet what you've linked weighs more against it (${Math.round(bal.againstW)}) than for it (${Math.round(bal.forW)}). Either the belief or the weights need another look.`,
+        detail: `You're ${pct(n)} sure of ${name(n)}, yet what you've linked leans against it: only ${evid}% of its weight is for it (${Math.round(bal.forW)} for, ${Math.round(bal.againstW)} against). Either the belief or the weights need another look.`,
         nodeIds: [n.id, ...bal.con.map((c) => c.id)],
+      });
+    } else if (doubtful && sure < 50 && evid! > 50) {
+      flags.push({
+        key: `under:${n.id}:${bal.pro.map((c) => c.id).join(",")}`,
+        severity: "gap",
+        title: "Less sure than your evidence",
+        detail: `You're only ${pct(n)} sure of ${name(n)}, but ${evid}% of what you've linked is for it (${Math.round(bal.forW)} for, ${Math.round(bal.againstW)} against). Is something missing on the other side — or should you believe it more?`,
+        nodeIds: [n.id, ...bal.pro.map((c) => c.id)],
       });
     } else {
       for (const c of bal.con) {

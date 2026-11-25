@@ -1,5 +1,6 @@
 "use client";
 
+import { toastUndo } from "@/lib/history";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePlan } from "@/lib/store";
 import { chain, isDone } from "@/lib/graph";
@@ -300,6 +301,8 @@ export default function Board() {
         const kind = NEXT_KIND[usePlan.getState().nodes[g.from]?.kind ?? "step"] ?? "step";
         const id = addNode(kind, g.x, g.y - ANCHOR_Y, kind === "step" ? "Next step" : "");
         link(g.from, id);
+        const st = usePlan.getState();
+        toastUndo(`Dropped on empty paper: added ${st.nodes[id]?.ref ?? "a card"}, linked from ${st.nodes[g.from]?.ref ?? "the card"}`);
       }
     }
   };

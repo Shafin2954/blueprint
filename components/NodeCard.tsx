@@ -289,13 +289,12 @@ function NodeCard({
             {weighed && (
               <span
                 className="flex flex-1 items-center gap-1.5"
-                title={`Evidence weight linked to this card: ${forW} for, ${againstW} against${thin ? " — too little to judge" : ""}`}
+                title={`Evidence linked to this card: ${forW} for, ${againstW} against. Each linked card adds how sure it is (×0.5 weak, ×1.5 strong link)${thin ? " — too little to judge yet" : ""}`}
               >
-                <span className="bp-mono text-[10px] text-[var(--ink-faint)]">evidence</span>
                 <span className={`flex h-[4px] flex-1 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--warn)_70%,transparent)] ${thin ? "opacity-35" : ""}`}>
                   <span className="h-full bg-[var(--sup)]" style={{ width: `${(forW / (forW + againstW || 1)) * 100}%` }} />
                 </span>
-                <span className="bp-mono text-[10px] text-[var(--ink-dim)]">+{forW} −{againstW}</span>
+                <span className="bp-mono shrink-0 text-[10px] text-[var(--ink-dim)]">{thin ? "too little" : `${forW} for · ${againstW} vs`}</span>
               </span>
             )}
           </div>

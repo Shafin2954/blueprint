@@ -262,3 +262,27 @@ describe("markdown export", () => {
     expect(boardToMarkdown("Cake", b.nodes, b.edges, false)).not.toContain("What I'd like from you");
   });
 });
+
+describe("belief vs evidence, both ways", () => {
+  const ev = (b: ReturnType<typeof board>, id: string, c: number) => b.card(id, "evidence", { confidence: c, source: id });
+  it("flags 60% sure when the evidence leans against", () => {
+    let b = board().card("c", "claim", { confidence: 60 });
+    b = ev(ev(ev(b, "e1", 80), "e2", 70), "e3", 95).link("e1", "c", "supports").link("e2", "c", "contradicts").link("e3", "c", "contradicts");
+    expect(titles(b)).toContain("Belief vs. evidence");
+  });
+  it("flags being much less sure than the evidence", () => {
+    let b = board().card("c", "claim", { confidence: 30 });
+    b = ev(ev(b, "e1", 80), "e2", 70).link("e1", "c", "supports").link("e2", "c", "supports");
+    expect(titles(b)).toContain("Less sure than your evidence");
+  });
+  it("stays quiet when belief roughly matches", () => {
+    let b = board().card("c", "claim", { confidence: 55 });
+    b = ev(ev(b, "e1", 70), "e2", 60).link("e1", "c", "supports").link("e2", "c", "contradicts");
+    expect(titles(b)).not.toContain("Belief vs. evidence");
+    expect(titles(b)).not.toContain("Less sure than your evidence");
+  });
+  it("accepts a counter-move written into a risk's title", () => {
+    const b = board().card("r", "risk", { title: "Paint smells — run a heater and open windows" });
+    expect(titles(b)).not.toContain("Risk without a counter-move");
+  });
+});

@@ -90,7 +90,7 @@ export function CommandBar() {
 
   // Command suggestions while typing "/word" (before the first space).
   const suggestions = useMemo(() => {
-    const m = text.match(/^\/(\S*)$/);
+    const m = text.match(/^\/{1,2}(\S*)$/);
     if (!m) return [];
     const q = m[1].toLowerCase();
     return COMMANDS.filter(([c]) => c.startsWith(q)).slice(0, 8);
@@ -104,7 +104,10 @@ export function CommandBar() {
   if (readOnly) return null;
 
   const submit = () => {
-    if (!parsed.action || missing.length) return;
+    if (!parsed.action || missing.length) {
+      input.current?.select(); // the status line says what's wrong; typing again replaces it
+      return;
+    }
     const id = run(parsed.action, last);
     if (id) setLast(id);
     const h = [text, ...history.filter((x) => x !== text)].slice(0, 50);
@@ -114,7 +117,7 @@ export function CommandBar() {
     } catch {}
     setBack(-1);
     // Clear the bar (a kept prefix caused "/goal /step …" mistakes); Tab brings the word back.
-    const m = text.match(/^\/\S+/);
+    const m = text.replace(/^\/{2,}/, "/").match(/^\/\S+/);
     setLastCmd(m ? m[0] : "");
     setText("");
   };
@@ -158,7 +161,7 @@ export function CommandBar() {
     if (e.key === "Escape") {
       e.preventDefault();
       if (text) setText("");
-      else input.current?.blur();
+      else document.querySelector<HTMLElement>(".bp-paper")?.focus(); // back to the sheet, so arrows keep working
     }
   };
 

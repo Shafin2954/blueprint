@@ -20,6 +20,8 @@ export function nearestInDirection(from: PlanNode, dir: Dir, nodes: Record<strin
     const along = dir === "right" ? dx : dir === "left" ? -dx : dir === "down" ? dy : -dy;
     const across = dir === "left" || dir === "right" ? Math.abs(dy) : Math.abs(dx);
     if (along <= 4) continue; // must actually be in that direction
+    // …and roughly ahead (within ~55°, plus a card's width of slack): never a jump to the far corner.
+    if (across > along * 1.4 + NODE_W / 2) continue;
     const score = along + across * 2.5; // sideways distance costs more
     if (score < bestScore) {
       bestScore = score;

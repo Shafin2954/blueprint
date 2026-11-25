@@ -6,6 +6,16 @@ import { usePlan } from "@/lib/store";
 import { toast } from "@/lib/history";
 import { findSheetByName, newSheet, switchSheet } from "@/lib/sheets";
 import { Symbol } from "./NodeCard";
+import { tidy } from "@/lib/layout";
+
+/** On a phone, lay an example out top to bottom so it can be read without zooming out to nothing. */
+function forScreen(st: Starter) {
+  const d = st.build();
+  if (typeof window === "undefined" || window.innerWidth >= 768) return d;
+  const pos = tidy(d.nodes, d.edges, [], { vertical: true });
+  d.nodes = Object.fromEntries(Object.entries(d.nodes).map(([id, n]) => [id, { ...n, ...pos[id] }]));
+  return d;
+}
 
 const fitAll = () => {
   const wide = window.innerWidth >= 900;
@@ -22,7 +32,7 @@ let beforeTour: string | null = null;
  */
 export function openForTour(st: Starter) {
   const name = `${st.title} (tour)`;
-  const fresh = { ...st.build(), project: name };
+  const fresh = { ...forScreen(st), project: name };
   const s = usePlan.getState();
   if (s.project !== name) beforeTour = Object.keys(s.nodes).length ? s.sheetId : null;
   if (s.project === name) {
@@ -50,10 +60,10 @@ function leaveTour() {
 export function loadStarter(st: Starter) {
   const hadCards = Object.keys(usePlan.getState().nodes).length > 0;
   if (hadCards) {
-    if (!newSheet(st.build())) return;
+    if (!newSheet(forScreen(st))) return;
     toast(`Opened “${st.title}” as a new sheet — your other work is under Sheets`);
   } else {
-    usePlan.getState().loadSheet(st.build());
+    usePlan.getState().loadSheet(forScreen(st));
   }
   fitAll();
 }

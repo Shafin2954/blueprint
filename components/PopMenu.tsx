@@ -6,6 +6,8 @@ import { createPortal } from "react-dom";
 export interface MenuItem {
   label: string;
   hint?: string;
+  /** One line under the label (shown in the phone bottom sheet, as the tooltip elsewhere). */
+  desc?: string;
   icon?: ReactNode;
   className?: string;
   run: () => void;
@@ -113,10 +115,14 @@ export function PopMenu({
                   setRect(null);
                   it.run();
                 }}
+                title={it.desc}
                 className={`bp-tool flex w-full items-center justify-start gap-2.5 px-3 text-left ${phone ? "min-h-[48px] text-[15px]" : "py-2"} ${it.className ?? ""}`}
               >
                 {it.icon && <span className="bp-accent shrink-0">{it.icon}</span>}
-                <span className="flex-1">{it.label}</span>
+                <span className="flex-1">
+                  {it.label}
+                  {it.desc && phone && <span className="block py-0.5 text-[11px] leading-snug text-[var(--ink-faint)]">{it.desc}</span>}
+                </span>
                 {it.hint && !phone && <span className="bp-mono text-[10px] text-[var(--ink-faint)]">{it.hint}</span>}
               </button>
             ))}
