@@ -5,7 +5,7 @@ import { usePlan } from "@/lib/store";
 import { isDone, progress } from "@/lib/graph";
 import type { Severity } from "@/lib/holes";
 import { BELIEF_KINDS, KIND_META, NODE_W, type Kind, type PlanNode } from "@/lib/types";
-import { balance, isThin, weight } from "@/lib/reason";
+import { cachedBalance, isThin, weight } from "@/lib/reason";
 import { hostOf, looksLikeImage } from "@/lib/image";
 import { useImageSrc } from "@/lib/images";
 
@@ -149,7 +149,7 @@ function NodeCard({
   // "for/against" weights, as a string so the selector stays referentially stable.
   const weighed = usePlan((s) => {
     if (!WEIGHED.has(node.kind)) return "";
-    const b = balance(node.id, s.nodes, s.edges);
+    const b = cachedBalance(node.id, s.nodes, s.edges);
     return b.score === null ? "" : `${Math.round(b.forW)}/${Math.round(b.againstW)}/${isThin(b) ? 1 : 0}`;
   });
   const [forW, againstW, thin] = weighed ? weighed.split("/").map(Number) : [0, 0, 0];

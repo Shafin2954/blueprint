@@ -6,12 +6,12 @@ import { usePlan } from "@/lib/store";
 import { chain, isDone } from "@/lib/graph";
 import { useHoles } from "@/lib/useHoles";
 import type { Severity } from "@/lib/holes";
-import { ANCHOR_Y, NODE_W, STRENGTH, type PlanNode } from "@/lib/types";
+import { ANCHOR_Y, NODE_W, STRENGTH, type Edge, type PlanNode } from "@/lib/types";
 import { saveImage, isUrl } from "@/lib/image";
 import NodeCard from "./NodeCard";
 import { NEXT_KIND, nearestTo } from "@/lib/keyboard";
 import { armGhostGuard } from "@/lib/ghost";
-import { routeLink, type Route } from "@/lib/routing";
+import { cardRect, routeAround, type Rect, type Route } from "@/lib/routing";
 import { MIN_FRAME, membersOf } from "@/lib/frames";
 import type { Frame } from "@/lib/types";
 
@@ -23,6 +23,30 @@ type Gesture =
   | { mode: "frame"; id: string; ox: number; oy: number; fx: number; fy: number; members: Record<string, { x: number; y: number }> }
   | { mode: "resize"; id: string; sx: number; sy: number; w: number; h: number }
   | null;
+
+/** Last result, reused while only text (not where cards are or how tall) has changed. */
+let routeCache: { key: string; edges: unknown; routes: Map<string, Route> } | null = null;
+
+function routesFor(nodes: Record<string, PlanNode>, edges: Record<string, Edge>): Map<string, Route> {
+  const list = Object.values(nodes);
+  if (list.length > 600) return new Map(); // very large sheets: plain curves
+  const rects = new Map(list.map((n) => [n.id, cardRect(n)]));
+  let key = "";
+  for (const [id, r] of rects) key += `${id}:${r.x}:${r.y}:${r.h}|`;
+  if (routeCache && routeCache.key === key && routeCache.edges === edges) return routeCache.routes;
+  const out = new Map<string, Route>();
+  const all = [...rects.entries()];
+  for (const e of Object.values(edges)) {
+    const a = nodes[e.from];
+    const b = nodes[e.to];
+    if (!a || !b) continue;
+    const others: Rect[] = [];
+    for (const [id, r] of all) if (id !== a.id && id !== b.id) others.push(r);
+    out.set(e.id, routeAround({ x: a.x + NODE_W, y: a.y + ANCHOR_Y }, { x: b.x - 4, y: b.y + ANCHOR_Y }, others));
+  }
+  routeCache = { key, edges, routes: out };
+  return out;
+}
 
 function edgePath(ax: number, ay: number, bx: number, by: number) {
   const dx = Math.max(70, Math.abs(bx - ax) / 2);
@@ -66,20 +90,9 @@ export default function Board() {
     return m;
   }, [flags]);
 
-  // Links detour around cards in their way; recomputed only when cards or links change.
-  const routes = useMemo(() => {
-    const out = new Map<string, Route>();
-    const list = Object.values(nodes);
-    if (list.length > 400) return out; // very large sheets: plain curves
-    for (const e of Object.values(edges)) {
-      const a = nodes[e.from];
-      const b = nodes[e.to];
-      if (!a || !b) continue;
-      const others = list.filter((n) => n.id !== a.id && n.id !== b.id);
-      out.set(e.id, routeLink({ x: a.x + NODE_W, y: a.y + ANCHOR_Y }, { x: b.x - 4, y: b.y + ANCHOR_Y }, others));
-    }
-    return out;
-  }, [nodes, edges]);
+  // Links detour around cards in their way. Recomputed only when the board's geometry or
+  // links change — not while you type in a card (unless its height changes).
+  const routes = useMemo(() => routesFor(nodes, edges), [nodes, edges]);
 
   const lit = useMemo(
     () => (selection?.type === "node" ? chain(selection.id, edges) : null),

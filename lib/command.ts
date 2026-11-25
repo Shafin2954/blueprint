@@ -123,7 +123,7 @@ export function parseCommand(input: string): Parsed {
   const cmd = m[1].toLowerCase();
   const rest = m[2];
   // "/goal /step Measure…": a second command typed over a first — the latest one wins.
-  const again = rest.match(/^\/([a-z]+)\b/i);
+  const again = rest.match(/^\/([a-z]+)(?=\s|$)/i); // not "/r/finance", a title that starts with a slash
   if (again && (kindFor(again[1]) || /^l(ink)?$/i.test(again[1]))) return parseCommand(rest);
 
   if (cmd === "link" || cmd === "l") {

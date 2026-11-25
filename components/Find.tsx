@@ -71,8 +71,10 @@ export function Find({ onClose }: { onClose: () => void }) {
           </li>
         ) : (
           results.map((n, i) => (
-            <li key={n.id} role="option" aria-selected={i === cur}>
+            <li key={n.id} role="none">
               <button
+                role="option"
+                aria-selected={i === cur}
                 onClick={() => go(n)}
                 onMouseMove={() => setActive(i)}
                 className={`flex w-full items-start gap-2.5 rounded-sm px-2 py-1.5 text-left ${i === cur ? "bg-[var(--hover)]" : ""}`}

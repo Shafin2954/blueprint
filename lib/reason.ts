@@ -41,31 +41,44 @@ function side(entries: { w: number; n: PlanNode }[]): { w: number; echoes: numbe
 
 const CHAINED = new Set<Kind>(["claim", "conclusion", "assumption"]);
 
+/** Pseudo-weight of "taken at face value" a chained card starts from, so one weak objection dents it rather than zeroing it. */
+const PRIOR = 100;
+
+type Memo = Map<string, number>;
+
 /**
  * How much a card counts as a reason. Evidence counts at face value (its confidence).
  * A claim, conclusion or assumption also has evidence of its own: it counts as its
- * confidence × how well that evidence holds up — so support passes along a chain, and a
- * claim whose own evidence leans against it can't make a conclusion look certain.
+ * confidence scaled by how well that evidence holds up — so support passes along a chain,
+ * and a claim whose own evidence leans against it can't make a conclusion look certain.
+ * The scaling is gentle: (PRIOR + for) / (PRIOR + for + against), so with nothing against
+ * it a card keeps its full weight, and a weak objection only trims it.
  */
-export function effectiveWeight(n: PlanNode, nodes: Nodes, edges: Edges, seen = new Set<string>()): number {
+export function effectiveWeight(n: PlanNode, nodes: Nodes, edges: Edges, seen = new Set<string>(), memo: Memo = new Map()): number {
   const w = weight(n);
   if (!CHAINED.has(n.kind) || seen.has(n.id)) return w;
+  const hit = memo.get(n.id);
+  if (hit !== undefined) return hit;
   seen.add(n.id);
-  const b = balanceOf(n.id, nodes, edges, seen);
+  const b = balanceOf(n.id, nodes, edges, seen, memo);
   seen.delete(n.id);
-  return b.score === null ? w : w * b.score;
+  const out = b.score === null ? w : (w * (PRIOR + b.forW)) / (PRIOR + b.forW + b.againstW);
+  memo.set(n.id, out);
+  return out;
 }
 
 export function balance(id: string, nodes: Nodes, edges: Edges): Balance {
-  return balanceOf(id, nodes, edges, new Set([id]));
+  return balanceOf(id, nodes, edges, new Set([id]), new Map());
 }
 
-function balanceOf(id: string, nodes: Nodes, edges: Edges, seen: Set<string>): Balance {
+function balanceOf(id: string, nodes: Nodes, edges: Edges, seen: Set<string>, memo: Memo): Balance {
   const pro: { n: PlanNode; w: number }[] = [];
   const con: { n: PlanNode; w: number }[] = [];
   const add = (list: typeof pro, n: PlanNode, mult: number) => {
-    seen.add(id);
-    list.push({ n, w: effectiveWeight(n, nodes, edges, seen) * mult });
+    // A card further up the chain being weighed (e.g. the one asking): it can't also
+    // count for or against its own reasons — that would make two rivals cancel out.
+    if (seen.has(n.id)) return;
+    list.push({ n, w: effectiveWeight(n, nodes, edges, seen, memo) * mult });
   };
   for (const e of Object.values(edges)) {
     const mult = STRENGTH[e.strength ?? "normal"].mult;
@@ -101,4 +114,29 @@ export function defaultRel(from: Kind, to: Kind): "feeds" | "supports" {
   if (from === "step" || from === "milestone") return "feeds";
   if (to === "step" || to === "milestone") return "feeds";
   return "supports";
+}
+
+// ── Shared cache: every card on screen asks for its balance on every store change. ──
+let cache: { nodes: Nodes; edges: Edges; sig: string; byId: Map<string, Balance> } | null = null;
+
+/** What balances depend on: kind, how sure, source — not titles or positions. */
+function signature(nodes: Nodes): string {
+  let s = "";
+  for (const n of Object.values(nodes)) s += `${n.id}:${n.kind}:${n.confidence ?? ""}:${n.source ?? ""}|`;
+  return s;
+}
+
+/** balance(), memoized across calls until something it depends on changes. */
+export function cachedBalance(id: string, nodes: Nodes, edges: Edges): Balance {
+  if (!cache || cache.nodes !== nodes || cache.edges !== edges) {
+    const sig = signature(nodes);
+    if (cache && cache.edges === edges && cache.sig === sig) cache = { ...cache, nodes };
+    else cache = { nodes, edges, sig, byId: new Map() };
+  }
+  let b = cache.byId.get(id);
+  if (!b) {
+    b = balance(id, nodes, edges);
+    cache.byId.set(id, b);
+  }
+  return b;
 }

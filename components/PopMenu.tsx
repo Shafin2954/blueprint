@@ -41,7 +41,7 @@ export function PopMenu({
     const close = (e: Event) => {
       if (e instanceof KeyboardEvent) {
         if (e.key !== "Escape") return;
-        e.stopPropagation();
+        e.stopPropagation(); // capture phase on window: the app's own Esc never sees it
         setRect(null);
         btn.current?.focus();
         return;
@@ -50,13 +50,13 @@ export function PopMenu({
       setRect(null);
     };
     window.addEventListener("pointerdown", close, true);
-    window.addEventListener("keydown", close);
+    window.addEventListener("keydown", close, true);
     window.addEventListener("resize", close);
     // Focus the first item, so the menu works from the keyboard.
     menu.current?.querySelector<HTMLButtonElement>("[role=menuitem]")?.focus();
     return () => {
       window.removeEventListener("pointerdown", close, true);
-      window.removeEventListener("keydown", close);
+      window.removeEventListener("keydown", close, true);
       window.removeEventListener("resize", close);
     };
   }, [rect]);

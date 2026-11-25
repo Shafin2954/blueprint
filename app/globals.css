@@ -13,7 +13,7 @@
   --line: rgba(196, 222, 255, 0.22);
   --ink: #eef5ff;
   --ink-dim: rgba(220, 234, 255, 0.72);
-  --ink-faint: rgba(200, 222, 255, 0.45);
+  --ink-faint: rgba(200, 222, 255, 0.58);
   --spark: #ffd166;
   --goal: #ffffff;
   --milestone: #6ee7f9;
@@ -175,7 +175,7 @@ body {
   box-shadow: 0 0 0 1px var(--spark), 0 10px 26px rgba(0, 10, 25, 0.45);
 }
 
-.bp-status-todo { border-color: var(--line); color: var(--ink-faint); }
+.bp-status-todo { border-color: var(--line); color: var(--ink-dim); }
 .bp-status-doing { border-color: var(--spark); color: var(--spark); }
 .bp-status-done { border-color: var(--ok); color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
 
@@ -366,3 +366,10 @@ body {
   .bp-menu { bottom: max(0.5rem, env(safe-area-inset-bottom)) !important; max-height: calc(100dvh - 120px) !important; }
 }
 @media (max-width: 767px) { .bp-toolbar { padding-right: 18px; -webkit-mask-image: none; mask-image: none; } }
+
+/* Phones: the smallest text is too small to read comfortably at arm's length. */
+@media (max-width: 767px) {
+  .text-\[11px\] { font-size: 12px; }
+  .text-\[10px\] { font-size: 11px; }
+  .bp-label { font-size: 10px; }
+}

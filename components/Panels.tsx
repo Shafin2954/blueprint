@@ -127,6 +127,7 @@ export function Dump({ onClose }: { onClose: () => void }) {
           <b>Big picture</b> tab will point out which ones seem to belong together.
         </p>
         <textarea
+          aria-label="Thoughts, one per line"
           autoFocus
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -256,7 +257,7 @@ export function Share({ onClose }: { onClose: () => void }) {
           <input type="checkbox" checked={withRequest} onChange={(e) => setWithRequest(e.target.checked)} />
           Include a consistency-check request at the top
         </label>
-        <textarea readOnly value={md} rows={12} className="bp-input bp-mono text-[11px] leading-relaxed" />
+        <textarea aria-label="Markdown to copy" readOnly value={md} rows={12} className="bp-input bp-mono text-[11px] leading-relaxed" />
         <div className="flex items-center gap-2">
           <span className="bp-mono text-[10px] text-[var(--ink-faint)]">{md.length.toLocaleString()} characters</span>
           <button
@@ -298,7 +299,7 @@ export function EdgePanel({ id }: { id: string }) {
   const b = nodes[edge.to];
   const rel = edge.rel ?? "feeds";
   return (
-    <aside ref={panelRef} className={`bp-panel ml-auto w-[300px] ${quiet ? "pointer-events-none" : "pointer-events-auto"} max-w-[calc(100vw-32px)] p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto`}>
+    <aside aria-label="Link editor" ref={panelRef} className={`bp-panel ml-auto w-[300px] ${quiet ? "pointer-events-none" : "pointer-events-auto"} max-w-[calc(100vw-32px)] p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto`}>
       <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
       <div className="flex items-center">
         <div className="bp-label">{fresh ? "New link — what does it mean?" : "Link"}</div>
@@ -365,7 +366,7 @@ export function FramePanel({ id }: { id: string }) {
   if (!frame) return null;
   const members = membersOf(frame, nodes).map((m) => nodes[m]);
   return (
-    <aside className={`bp-panel ml-auto w-[300px] max-w-[calc(100vw-32px)] p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto ${quiet ? "pointer-events-none" : "pointer-events-auto"}`}>
+    <aside aria-label="Frame editor" className={`bp-panel ml-auto w-[300px] max-w-[calc(100vw-32px)] p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto ${quiet ? "pointer-events-none" : "pointer-events-auto"}`}>
       <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
       <div className="flex items-center">
         <label className="bp-label block" htmlFor={`frame-${id}`}>Frame label</label>

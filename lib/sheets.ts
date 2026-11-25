@@ -294,7 +294,9 @@ export function enterViewer(data: SheetData): boolean {
     return true;
   }
   // An empty, untitled sheet (e.g. a first visit straight to a link) isn't worth keeping.
-  if (!Object.keys(s.nodes).length) {
+  // Anything you named or framed is, even with no cards yet.
+  const untouched = !Object.keys(s.nodes).length && !Object.keys(s.frames).length && (!s.project || s.project === "Untitled");
+  if (untouched) {
     index = index.filter((m) => m.id !== s.sheetId);
     writeIndex();
     open(`view-${newId()}`, data, { returnTo: "" });
@@ -322,16 +324,29 @@ export function exitViewer() {
 export function keepSharedCopy(): "saved" | "already" {
   const s = usePlan.getState();
   if (!s.viewing) return "saved";
-  // Saved this one before (same name, same number of cards)? Open that instead of a duplicate.
+  // Saved this exact sheet before (same name and the same content)? Open that copy instead of
+  // making a duplicate. If your copy has been edited since, it's different: save a new one.
   const same = findSheetByName(s.project);
-  if (same && same.cards === Object.keys(s.nodes).length && localStorage.getItem(slot(same.id))) {
-    exitViewer();
+  const raw = same ? localStorage.getItem(slot(same.id)) : null;
+  if (same && raw && contentKey(JSON.parse(raw) as SheetData) === contentKey(s)) {
+    // The shared sheet was never parked, and the sheet you came from is safe in its slot.
     switchSheet(same.id);
     return "already";
   }
   usePlan.setState({ viewing: null, sheetId: newId(), project: s.project });
   touchCurrent();
   return "saved";
+}
+
+/** What a sheet says (cards and links), ignoring where it's scrolled to. */
+function contentKey(d: Pick<SheetData, "nodes" | "edges">): string {
+  const cards = Object.values(d.nodes)
+    .map((n) => `${n.ref}|${n.kind}|${n.title}|${n.body}|${n.confidence ?? ""}|${n.status}`)
+    .sort();
+  const links = Object.values(d.edges)
+    .map((e) => `${d.nodes[e.from]?.ref}>${d.nodes[e.to]?.ref}:${e.rel ?? ""}:${e.strength ?? ""}`)
+    .sort();
+  return JSON.stringify([cards, links]);
 }
 
 /** A sheet of yours with this exact name, if any (most recent first). */

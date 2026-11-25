@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useDeferredValue } from "react";
 import { usePlan, useReadOnly } from "@/lib/store";
 import { nextMoves, progress } from "@/lib/graph";
 import { islands, pairKey, suggestLinks } from "@/lib/insight";
 import { useHoles } from "@/lib/useHoles";
-import { balance, isThin, weight } from "@/lib/reason";
+import { cachedBalance, isThin, weight, type Balance } from "@/lib/reason";
 import type { Flag, FixAction } from "@/lib/holes";
 import type { Kind, PlanNode } from "@/lib/types";
 import { Symbol } from "./NodeCard";
@@ -41,8 +41,9 @@ export function runFix(a: FixAction) {
 
 function NextTab() {
   const readOnly = useReadOnly();
-  const nodes = usePlan((s) => s.nodes);
-  const edges = usePlan((s) => s.edges);
+  // Deferred: heavy summaries catch up just after a keystroke instead of delaying it.
+  const nodes = useDeferredValue(usePlan((s) => s.nodes));
+  const edges = useDeferredValue(usePlan((s) => s.edges));
   const cycleStatus = usePlan((s) => s.cycleStatus);
   const moves = useMemo(() => nextMoves(nodes, edges), [nodes, edges]);
   const goals = useMemo(
@@ -174,9 +175,9 @@ function Meter({ score }: { score: number | null }) {
   );
 }
 
-const rank = (b: ReturnType<typeof balance>) => (b.score === null ? 0 : 1);
+const rank = (b: Balance) => (b.score === null ? 0 : 1);
 
-const reasonsText = (b: ReturnType<typeof balance>) => {
+const reasonsText = (b: Balance) => {
   const n = b.pro.length + b.con.length;
   if (isThin(b)) return `${n} reason${n === 1 ? "" : "s"} · too little to judge`;
   if (!b.con.length) return `${n} reasons, none against`;
@@ -186,8 +187,9 @@ const reasonsText = (b: ReturnType<typeof balance>) => {
 
 /** Questions with several candidate answers, each weighed by what supports or contradicts it. */
 function Questions() {
-  const nodes = usePlan((s) => s.nodes);
-  const edges = usePlan((s) => s.edges);
+  // Deferred: heavy summaries catch up just after a keystroke instead of delaying it.
+  const nodes = useDeferredValue(usePlan((s) => s.nodes));
+  const edges = useDeferredValue(usePlan((s) => s.edges));
   const qs = useMemo(() => {
     return Object.values(nodes)
       .filter((q) => q.kind === "question")
@@ -196,7 +198,7 @@ function Questions() {
           .filter((e) => e.to === q.id && e.rel !== "contradicts" && nodes[e.from])
           .map((e) => nodes[e.from])
           .filter((a) => a.kind === "claim" || a.kind === "conclusion")
-          .map((a) => ({ a, b: balance(a.id, nodes, edges) }))
+          .map((a) => ({ a, b: cachedBalance(a.id, nodes, edges) }))
           // By net evidence (weight for minus against); answers with no evidence at all last.
           .sort((x, y) => rank(y.b) - rank(x.b) || (y.b.forW - y.b.againstW) - (x.b.forW - x.b.againstW));
         return { q, answers };
@@ -253,8 +255,9 @@ function Questions() {
 
 function PictureTab({ flagCount }: { flagCount: number }) {
   const readOnly = useReadOnly();
-  const nodes = usePlan((s) => s.nodes);
-  const edges = usePlan((s) => s.edges);
+  // Deferred: heavy summaries catch up just after a keystroke instead of delaying it.
+  const nodes = useDeferredValue(usePlan((s) => s.nodes));
+  const edges = useDeferredValue(usePlan((s) => s.edges));
   const dismissed = usePlan((s) => s.dismissed);
   const { connect, dismiss } = usePlan.getState();
   const isl = useMemo(() => islands(nodes, edges), [nodes, edges]);
@@ -374,7 +377,7 @@ export default function Sidebar() {
   if (linking && window.innerWidth < 768) return null; // phones: give the board all the room while choosing a target
 
   return (
-    <aside className="bp-panel pointer-events-auto w-[300px] max-w-[calc(100vw-32px)]">
+    <aside aria-label="Checks and overview" className="bp-panel pointer-events-auto w-[300px] max-w-[calc(100vw-32px)]">
       <div className="flex items-center border-b border-[var(--line)]">
         {tabs.map(([t, label, n]) => (
           <button

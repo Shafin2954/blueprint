@@ -148,6 +148,8 @@ function makeNode(
 export function visibleArea(w: number, h: number, panelOpen: boolean) {
   // Desktop: keep clear of the sidebar, the inspector and the command bar at the bottom.
   if (w >= 900) return { left: 330, right: panelOpen ? w - 330 : w - 24, top: 110, bottom: h - 110 };
+  // Tablets: phone-style panels, but the command bar is there (from 768px).
+  if (w >= 768) return { left: 12, right: w - 12, top: 150, bottom: panelOpen ? h * 0.42 : h - 110 };
   // Phones: below the toolbar and folded panel tabs; above the bottom sheet if it's open.
   return { left: 12, right: w - 12, top: 150, bottom: panelOpen ? h * 0.42 : h - 24 };
 }

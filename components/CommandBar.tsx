@@ -80,6 +80,7 @@ export function CommandBar() {
   // ↑ recalls history only once you've actually used the bar (clicked or typed in it), so a
   // stray ↑ after focus lands here by accident can't re-run an old command.
   const used = useRef(false);
+  const retabbed = useRef(false);
 
   useEffect(() => {
     const focus = (e: Event) => {
@@ -122,11 +123,13 @@ export function CommandBar() {
     // Clear the bar (a kept prefix caused "/goal /step …" mistakes); Tab brings the word back.
     const m = text.replace(/^\/{2,}/, "/").match(/^\/\S+/);
     setLastCmd(m ? m[0] : "");
+    retabbed.current = false;
     setText("");
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Tab" && !text && lastCmd) {
+    if (e.key === "Tab" && !e.shiftKey && !text && lastCmd && !retabbed.current) {
+      retabbed.current = true; // once: a second Tab moves on as usual
       e.preventDefault();
       setText(`${lastCmd} `);
       return;
@@ -186,8 +189,10 @@ export function CommandBar() {
           {suggestions.map(([c, hint], i) => {
             const k = c as Kind;
             return (
-              <li key={c} role="option" aria-selected={i === cur}>
+              <li key={c} role="none">
                 <button
+                  role="option"
+                  aria-selected={i === cur}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     setText(`/${c} `);

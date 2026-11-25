@@ -7,7 +7,7 @@ import { estimateHeight } from "./layout";
 import { NODE_W, type PlanNode } from "./types";
 
 type Pt = { x: number; y: number };
-type Rect = { x: number; y: number; w: number; h: number };
+export type Rect = { x: number; y: number; w: number; h: number };
 
 const PAD = 10;
 
@@ -52,7 +52,13 @@ export interface Route {
  * (every card except the two ends).
  */
 export function routeLink(a: Pt, b: Pt, others: PlanNode[]): Route {
-  const obstacles: Rect[] = others.map((n) => ({ x: n.x, y: n.y, w: NODE_W, h: estimateHeight(n) }));
+  return routeAround(a, b, others.map(cardRect));
+}
+
+export const cardRect = (n: PlanNode): Rect => ({ x: n.x, y: n.y, w: NODE_W, h: estimateHeight(n) });
+
+/** routeLink with the obstacles already measured (measure each card once, not once per link). */
+export function routeAround(a: Pt, b: Pt, obstacles: Rect[]): Route {
   // Only cards in the link's neighbourhood can be in the way.
   const minX = Math.min(a.x, b.x) - 80;
   const maxX = Math.max(a.x, b.x) + 80;

@@ -35,7 +35,59 @@ let version = 0;
 const emit = () => {
   version++;
   listeners.forEach((l) => l());
+  scheduleSave();
 };
+
+// ── Survive a reload: keep recent history in sessionStorage (this tab only). ──
+const SAVE_KEY = "blueprint-history-v1";
+const KEEP = 40;
+let saveTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Cheap fingerprint of the board, so saved history is only restored onto the board it belongs to. */
+function fingerprint(s: Pick<Snapshot, "nodes" | "edges" | "frames" | "project">): string {
+  const text = JSON.stringify([s.project, s.nodes, s.edges, s.frames]);
+  let h = 0;
+  for (let i = 0; i < text.length; i++) h = (Math.imul(h, 31) + text.charCodeAt(i)) | 0;
+  return `${text.length}:${h}`;
+}
+
+function saveNow() {
+  clearTimeout(saveTimer);
+  const s = usePlan.getState();
+  if (s.viewing) return;
+  for (const keep of [KEEP, 10, 3]) {
+    try {
+      sessionStorage.setItem(
+        SAVE_KEY,
+        JSON.stringify({ sheetId: s.sheetId, at: fingerprint(s), past: past.slice(-keep), future: future.slice(-keep) }),
+      );
+      return;
+    } catch {
+      /* too big: try fewer steps */
+    }
+  }
+  try {
+    sessionStorage.removeItem(SAVE_KEY);
+  } catch {}
+}
+
+function scheduleSave() {
+  if (!started) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 800);
+}
+
+function restore() {
+  try {
+    const raw = sessionStorage.getItem(SAVE_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw) as { sheetId: string; at: string; past: Snapshot[]; future: Snapshot[] };
+    const s = usePlan.getState();
+    if (d.sheetId !== s.sheetId || d.at !== fingerprint(s)) return;
+    past = d.past;
+    future = d.future;
+  } catch {}
+}
 
 const snap = (s: Snapshot): Snapshot => ({ project: s.project, nodes: s.nodes, edges: s.edges, frames: s.frames, counters: s.counters });
 
@@ -43,6 +95,9 @@ const snap = (s: Snapshot): Snapshot => ({ project: s.project, nodes: s.nodes, e
 export function startHistory() {
   if (started) return;
   started = true;
+  restore();
+  emit();
+  window.addEventListener("pagehide", saveNow);
   usePlan.subscribe((state, prev) => {
     if (applying) return;
     if (state.nodes === prev.nodes && state.edges === prev.edges && state.frames === prev.frames && state.project === prev.project) return;

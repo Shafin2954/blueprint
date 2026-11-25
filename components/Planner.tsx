@@ -87,7 +87,7 @@ function TitleBlock({ onSheets }: { onSheets: () => void }) {
         <div className="flex items-center text-[9px] text-[var(--ink-faint)]">
           Sheet
           {!readOnly && (
-            <button onClick={onSheets} className="ml-auto normal-case tracking-normal text-[var(--milestone)] hover:underline">
+            <button onClick={onSheets} className="ml-auto -mr-1.5 -mt-1 mb-1 inline-block min-h-6 px-1.5 py-1 normal-case tracking-normal text-[var(--milestone)] hover:underline">
               all sheets ›
             </button>
           )}

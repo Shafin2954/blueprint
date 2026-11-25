@@ -104,8 +104,9 @@ describe("weighing", () => {
       .link("e1", "c", "supports")
       .link("e2", "c", "contradicts")
       .link("c", "d", "supports");
-    // c's own evidence: 70 for, 85 against → score 70/155; it lends d 80 × 0.45 ≈ 36, not 80
-    expect(balance("d", b.nodes, b.edges).forW).toBe(Math.round(80 * (70 / 155)));
+    // c's own evidence: 70 for, 85 against; with the face-value prior of 100 it lends d
+    // 80 × (100 + 70) / (100 + 70 + 85) ≈ 53, not 80
+    expect(balance("d", b.nodes, b.edges).forW).toBe(Math.round((80 * 170) / 255));
   });
 
   it("calls one reason too little to judge", async () => {
@@ -304,5 +305,33 @@ describe("round 6 checks", () => {
   it("still flags it with a single weaker reason", () => {
     const b = board().card("c", "claim", { confidence: 90 }).card("e", "evidence", { confidence: 60 }).link("e", "c", "supports");
     expect(titles(b)).toContain("More sure than your reasons");
+  });
+});
+
+describe("chained weighing (code review)", () => {
+  it("two rival claims that contradict each other each count against the other", () => {
+    const b = board().card("a", "claim", { confidence: 70 }).card("b", "claim", { confidence: 70 }).link("a", "b", "contradicts");
+    const bal = balance("a", b.nodes, b.edges);
+    expect(bal.againstW).toBe(70);
+    expect(bal.score).toBe(0);
+  });
+  it("a weak objection trims a claim's support instead of zeroing it", () => {
+    const b = board()
+      .card("c", "claim", { confidence: 90 })
+      .card("d", "conclusion")
+      .card("t", "thought")
+      .link("c", "d", "supports")
+      .link("t", "c", "contradicts");
+    const w = balance("d", b.nodes, b.edges).forW;
+    expect(w).toBeGreaterThan(60);
+    expect(w).toBeLessThan(90);
+  });
+  it("stays fast on densely layered beliefs", () => {
+    let b = board();
+    for (let l = 0; l < 6; l++) for (let i = 0; i < 5; i++) b = b.card(`c${l}${i}`, "claim");
+    for (let l = 0; l < 5; l++) for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) b = b.link(`c${l}${i}`, `c${l + 1}${j}`, "supports");
+    const t = performance.now();
+    balance("c50", b.nodes, b.edges);
+    expect(performance.now() - t).toBeLessThan(200);
   });
 });

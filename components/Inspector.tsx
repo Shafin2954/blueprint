@@ -85,7 +85,7 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
     ) : null;
 
   return (
-    <aside className={`bp-panel ml-auto max-h-full ${quiet ? "pointer-events-none" : "pointer-events-auto"} w-[300px] max-w-[calc(100vw-32px)] overflow-y-auto p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto`}>
+    <aside aria-label="Card editor" className={`bp-panel ml-auto max-h-full ${quiet ? "pointer-events-none" : "pointer-events-auto"} w-[300px] max-w-[calc(100vw-32px)] overflow-y-auto p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh] max-md:overflow-y-auto`}>
       {/* Outside the fieldset: closing must work in a read-only shared sheet too. */}
       <div className="mb-2 flex items-center justify-end md:hidden">
         <button onClick={() => usePlan.getState().select(null)} className="bp-btn bp-mono px-3 py-1 text-[11px]" aria-label="Done" title="Close the editor">
@@ -97,6 +97,7 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
         <span className={`bp-${node.kind} bp-accent`}><Symbol kind={node.kind} size={16} /></span>
         <span className="bp-mono whitespace-nowrap text-[11px] uppercase tracking-[0.2em] text-[var(--ink-dim)]">{node.ref}</span>
         <select
+          aria-label="Card type"
           value={node.kind}
           onChange={(e) => updateNode(id, { kind: e.target.value as Kind })}
           className="bp-input ml-auto w-auto py-1 text-[12px]"
@@ -110,6 +111,7 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
 
       <label className="bp-label mt-4 block">Title</label>
       <textarea
+        aria-label="Title"
         ref={titleRef}
         value={node.title}
         onFocus={(e) => /^\[.*\]$/.test(e.target.value) && e.target.select()}
@@ -178,6 +180,7 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
       </div>
       <label className="bp-label mt-3 block">{node.kind === "snippet" ? "Snippet" : "Notes"}</label>
       <textarea
+        aria-label="Notes"
         ref={notesRef}
         value={node.body}
         rows={node.kind === "snippet" ? 7 : 4}
