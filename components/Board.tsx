@@ -6,7 +6,7 @@ import { usePlan } from "@/lib/store";
 import { chain, isDone } from "@/lib/graph";
 import { useHoles } from "@/lib/useHoles";
 import type { Severity } from "@/lib/holes";
-import { ANCHOR_Y, NODE_W, STRENGTH, type Edge, type PlanNode } from "@/lib/types";
+import { ANCHOR_Y, NODE_W, STRENGTH, TEXT_SIZE, TEXT_W, type Edge, type PlanNode } from "@/lib/types";
 import { saveImage, isUrl } from "@/lib/image";
 import NodeCard from "./NodeCard";
 import { NEXT_KIND, nearestTo } from "@/lib/keyboard";
@@ -22,13 +22,14 @@ type Gesture =
   | { mode: "pinch"; d0: number; k0: number; vx: number; vy: number; mx: number; my: number }
   | { mode: "frame"; id: string; ox: number; oy: number; fx: number; fy: number; members: Record<string, { x: number; y: number }> }
   | { mode: "resize"; id: string; sx: number; sy: number; w: number; h: number }
+  | { mode: "textsize"; id: string; sx: number; w: number; size: number }
   | null;
 
 /** Last result, reused while only text (not where cards are or how tall) has changed. */
 let routeCache: { key: string; edges: unknown; routes: Map<string, Route> } | null = null;
 
 function routesFor(nodes: Record<string, PlanNode>, edges: Record<string, Edge>): Map<string, Route> {
-  const list = Object.values(nodes);
+  const list = Object.values(nodes).filter((n) => n.kind !== "text"); // links may cross labels
   if (list.length > 600) return new Map(); // very large sheets: plain curves
   const rects = new Map(list.map((n) => [n.id, cardRect(n)]));
   let key = "";
@@ -181,8 +182,14 @@ export default function Board() {
       return;
     }
     if (target.closest("[data-nodrag]")) return;
+    const textGrip = target.closest<HTMLElement>("[data-text-resize]");
 
-    if (frameResize) {
+    if (textGrip) {
+      // Scale a text box: wider box, bigger type, in proportion.
+      const n = usePlan.getState().nodes[textGrip.dataset.textResize!];
+      const p = toWorld(e.clientX, e.clientY);
+      gesture.current = { mode: "textsize", id: n.id, sx: p.x, w: n.w ?? TEXT_W, size: n.size ?? TEXT_SIZE };
+    } else if (frameResize) {
       const f = usePlan.getState().frames[frameResize.dataset.frameResize!];
       const p = toWorld(e.clientX, e.clientY);
       gesture.current = { mode: "resize", id: f.id, sx: p.x, sy: p.y, w: f.w, h: f.h };
@@ -264,6 +271,11 @@ export default function Board() {
       const dy = Math.round((p.y - g.oy) / 12) * 12;
       const moved = Object.fromEntries(Object.entries(g.members).map(([id, m]) => [id, { x: m.x + dx, y: m.y + dy }]));
       usePlan.getState().placeFrame(g.id, g.fx + dx, g.fy + dy, moved);
+    } else if (g.mode === "textsize") {
+      const p = toWorld(e.clientX, e.clientY);
+      const w = Math.max(60, Math.round(g.w + p.x - g.sx));
+      const size = Math.max(10, Math.min(160, Math.round((g.size * w) / g.w)));
+      usePlan.getState().updateNode(g.id, { w, size });
     } else if (g.mode === "resize") {
       const p = toWorld(e.clientX, e.clientY);
       usePlan.getState().updateFrame(g.id, {
@@ -512,7 +524,8 @@ export default function Board() {
           )}
         </svg>
 
-        {list.map((n: PlanNode) => (
+        {/* Text boxes first, so cards sit on top of them (they are background labels). */}
+        {[...list.filter((n) => n.kind === "text"), ...list.filter((n) => n.kind !== "text")].map((n: PlanNode) => (
           <NodeCard
             key={n.id}
             node={n}

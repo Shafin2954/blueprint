@@ -4,7 +4,7 @@ import { memo } from "react";
 import { usePlan } from "@/lib/store";
 import { isDone, progress } from "@/lib/graph";
 import type { Severity } from "@/lib/holes";
-import { BELIEF_KINDS, KIND_META, NODE_W, type Kind, type PlanNode } from "@/lib/types";
+import { BELIEF_KINDS, KIND_META, NODE_W, TEXT_SIZE, TEXT_W, type Kind, type PlanNode } from "@/lib/types";
 import { cachedBalance, isThin, weight } from "@/lib/reason";
 import { hostOf, looksLikeImage } from "@/lib/image";
 import { useImageSrc } from "@/lib/images";
@@ -95,7 +95,68 @@ export function Symbol({ kind, size = 14 }: { kind: Kind; size?: number }) {
           <path d="M8 6v4M8 11.6v.8" />
         </svg>
       );
+    case "text":
+      return (
+        <svg {...common}>
+          <path d="M3 3.5h10M8 3.5V13.5M6 13.5h4" strokeWidth={1.8} />
+        </svg>
+      );
   }
+}
+
+/**
+ * Text: decoration on the paper (a heading, a label). No card chrome, no links; bold by
+ * default; drag the corner to scale it (box and type together).
+ */
+function TextBox({ node, selected, dimmed }: { node: PlanNode; selected: boolean; dimmed: boolean }) {
+  const editing = usePlan((s) => s.editing === node.id);
+  const readOnly = usePlan((s) => s.viewing !== null);
+  const w = node.w ?? TEXT_W;
+  const size = node.size ?? TEXT_SIZE;
+  const style = { fontSize: size, lineHeight: 1.2, fontWeight: node.plain ? 400 : 700 } as const;
+  return (
+    <div
+      data-node-id={node.id}
+      role="group"
+      aria-label={`Text: ${node.title}`}
+      aria-current={selected || undefined}
+      className={`bp-textbox absolute cursor-grab active:cursor-grabbing ${selected ? "bp-textbox-selected" : ""}`}
+      style={{ left: node.x, top: node.y, width: w, opacity: dimmed ? 0.6 : 1 }}
+    >
+      {editing ? (
+        <textarea
+          data-nodrag
+          autoFocus
+          defaultValue={node.title}
+          rows={Math.max(1, Math.ceil((node.title.length * size * 0.55) / w))}
+          aria-label="Text"
+          onFocus={(e) => e.target.select()}
+          onBlur={(e) => {
+            const v = e.target.value.trim();
+            if (v && v !== node.title) usePlan.getState().updateNode(node.id, { title: v });
+            usePlan.getState().setEditing(null);
+          }}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if ((e.key === "Enter" && !e.shiftKey) || e.key === "Escape") {
+              e.preventDefault();
+              (e.target as HTMLTextAreaElement).blur();
+              document.querySelector<HTMLElement>(".bp-paper")?.focus();
+            }
+          }}
+          className="bp-input block w-full resize-none bg-transparent p-0 text-[var(--ink)]"
+          style={style}
+        />
+      ) : (
+        <p data-title title="Double-click to edit" className="whitespace-pre-wrap break-words text-[var(--ink)]" style={style}>
+          {node.title}
+        </p>
+      )}
+      {selected && !readOnly && (
+        <span data-text-resize={node.id} className="bp-text-grip" title="Drag to resize" aria-hidden />
+      )}
+    </div>
+  );
 }
 
 function Ring({ done, total }: { done: number; total: number }) {
@@ -160,6 +221,8 @@ function NodeCard({
   const spot = usePlan((s) => s.spotlight === node.id);
   const setEditing = (on: boolean) => usePlan.getState().setEditing(on ? node.id : null);
   const done = node.kind === "step" ? node.status === "done" : md === 1;
+
+  if (node.kind === "text") return <TextBox node={node} selected={selected} dimmed={dimmed} />;
 
   return (
     <div

@@ -48,9 +48,14 @@ interface PlanState {
   setView: (v: View) => void;
   select: (s: Selection) => void;
   addNode: (kind: Kind, x: number, y: number, title?: string, body?: string) => string;
+  /**
+   * Add a card that leads into `target` (an answer, a reason for/against, a step), placed to
+   * its left and linked — without selecting it, so a list you're working in stays open.
+   */
+  addInto: (kind: Kind, title: string, target: string, rel: Rel) => string | null;
   updateNode: (
     id: string,
-    patch: Partial<Pick<PlanNode, "title" | "body" | "kind" | "status" | "confidence" | "link" | "image" | "source">>,
+    patch: Partial<Pick<PlanNode, "title" | "body" | "kind" | "status" | "confidence" | "link" | "image" | "source" | "w" | "size" | "plain">>,
   ) => void;
   moveNode: (id: string, x: number, y: number) => void;
   /** Move many cards at once (one undo step). */
@@ -114,6 +119,7 @@ const ZERO: Record<Kind, number> = {
   step: 0,
   snippet: 0,
   risk: 0,
+  text: 0,
 };
 
 function makeNode(
@@ -124,12 +130,12 @@ function makeNode(
   title = "",
   body = "",
 ): [PlanNode, Record<Kind, number>] {
-  const n = counters[kind] + 1;
+  const n = (counters[kind] ?? 0) + 1; // sheets saved before a kind existed have no counter for it
   const node: PlanNode = {
     id: uid(),
     ref: `${KIND_META[kind].prefix}-${String(n).padStart(2, "0")}`,
     kind,
-    title: title || `New ${KIND_META[kind].label.toLowerCase()}`,
+    title: title || (kind === "text" ? "Heading" : `New ${KIND_META[kind].label.toLowerCase()}`),
     body,
     x,
     y,
@@ -206,6 +212,17 @@ export const usePlan = create<PlanState>()(
       setView: (view) => set({ view }),
       select: (selection) => set((s) => ({ selection, fresh: null, freshEdge: selection?.id === s.freshEdge ? s.freshEdge : null })),
 
+      addInto: (kind, title, target, rel) => {
+        const t = get().nodes[target];
+        if (!t) return null;
+        const siblings = Object.values(get().edges).filter((e) => e.to === target).length;
+        const spot = findFreeSpot(get().nodes, t.x - 300, t.y + siblings * 24);
+        const [node, counters] = makeNode(get().counters, kind, spot.x, spot.y, title);
+        set((s) => ({ nodes: { ...s.nodes, [node.id]: node }, counters }));
+        get().connect(node.id, target, rel);
+        return node.id;
+      },
+
       addNode: (kind, x, y, title, body) => {
         const [node, counters] = makeNode(get().counters, kind, x, y, title, body);
         set((s) => ({ nodes: { ...s.nodes, [node.id]: node }, counters, selection: { type: "node", id: node.id }, fresh: node.id }));
@@ -219,7 +236,7 @@ export const usePlan = create<PlanState>()(
           let next = { ...n, ...patch };
           let counters = s.counters;
           if (patch.kind && patch.kind !== n.kind) {
-            const c = s.counters[patch.kind] + 1;
+            const c = (s.counters[patch.kind] ?? 0) + 1;
             counters = { ...s.counters, [patch.kind]: c };
             next = { ...next, ref: `${KIND_META[patch.kind].prefix}-${String(c).padStart(2, "0")}` };
             if (BELIEF_KINDS.has(patch.kind) && next.confidence === undefined) next.confidence = DEFAULT_CONFIDENCE[patch.kind];
@@ -286,6 +303,8 @@ export const usePlan = create<PlanState>()(
       connect: (from, to, rel = "feeds") => {
         const { edges } = get();
         if (from === to) return false;
+        // Text boxes are decoration: they don't take part in links.
+        if (get().nodes[from]?.kind === "text" || get().nodes[to]?.kind === "text") return false;
         // Contradictions are symmetric tension, not flow, so they can't form a loop.
         if (rel !== "contradicts" && wouldCycle(from, to, edges)) return false;
         if (Object.values(edges).some((e) => (e.from === from && e.to === to) || (e.from === to && e.to === from))) return false;

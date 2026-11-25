@@ -358,3 +358,12 @@ describe("telling answers apart", () => {
     expect(m.rows.map((r) => [r.node.id, r.cells])).toEqual([["e1", [1, -1]], ["e2", [0, 1]]]);
   });
 });
+
+describe("text boxes are decoration", () => {
+  it("are ignored by the checks and by tidy", async () => {
+    const { tidy } = await import("../layout");
+    const b = board().card("x", "text", { title: "Heading", x: 999, y: 999 }).card("c", "claim").card("e", "evidence").link("e", "c", "supports");
+    expect(findHoles(b.nodes, b.edges).some((f) => f.nodeIds.includes("x"))).toBe(false);
+    expect(tidy(b.nodes, b.edges).x).toBeUndefined();
+  });
+});

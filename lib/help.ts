@@ -121,6 +121,12 @@ export const HELP: HelpEntry[] = [
     demo: [[c("snippet", "Definition of done"), "feeds", c("step", "Write one sentence: what is done?")]],
     keywords: "code quote text copy reference",
   },
+  {
+    id: "text", group: "Cards", kind: "text", title: "Text",
+    summary: "Decoration: a bold heading or label on the paper.",
+    body: "Add it from + more cards (phones: + Add), or type /text Your words in the command bar. It has no border and is bold by default. Select it and drag the yellow corner to resize it: the box and the type scale together. The editor also has sizes S, M, L and XL and a Bold switch. Text isn't part of your reasoning: it can't be linked, the checks and the outline ignore it, and Tidy leaves it where you put it.",
+    keywords: "text label heading title decoration annotate caption bold font size resize",
+  },
 
   // ── Links ──
   {

@@ -164,7 +164,7 @@ function HolesTab({ flags }: { flags: Flag[] }) {
 
 const STAGE: Record<Kind, number> = {
   thought: 0, spark: 1, evidence: 1, assumption: 2, snippet: 2, claim: 3, risk: 3, question: 4, conclusion: 4,
-  step: 4, milestone: 5, goal: 6,
+  step: 4, milestone: 5, goal: 6, text: 0,
 };
 
 function Meter({ score }: { score: number | null }) {
@@ -317,7 +317,7 @@ function PictureTab({ flagCount }: { flagCount: number }) {
   const { connect, dismiss } = usePlan.getState();
   const isl = useMemo(() => islands(nodes, edges), [nodes, edges]);
   const sugg = useMemo(() => suggestLinks(nodes, edges, new Set(dismissed)), [nodes, edges, dismissed]);
-  const loose = Object.keys(nodes).length - isl.reduce((s, i) => s + i.ids.length, 0);
+  const loose = Object.values(nodes).filter((n) => n.kind !== "text").length - isl.reduce((s, i) => s + i.ids.length, 0);
 
   const link = (a: PlanNode, b: PlanNode) => {
     const [from, to] = STAGE[a.kind] <= STAGE[b.kind] ? [a, b] : [b, a];

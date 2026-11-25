@@ -10,7 +10,8 @@ export type Kind =
   | "milestone"
   | "step"
   | "snippet"
-  | "risk";
+  | "risk"
+  | "text";
 export type Status = "todo" | "doing" | "done";
 
 export interface PlanNode {
@@ -38,6 +39,10 @@ export interface PlanNode {
   source?: string;
   /** Set on cards opened from a share link whose image was left out of the link. */
   imageOmitted?: boolean;
+  /** Text (decoration) only: box width and font size in px, and regular instead of bold weight. */
+  w?: number;
+  size?: number;
+  plain?: boolean;
 }
 
 /**
@@ -135,6 +140,7 @@ export const KIND_META: Record<
     hint: "Code, copy, a link, a quote. Raw material.",
   },
   risk: { label: "Risk", prefix: "R", hint: "What could stop this, and the counter-move." },
+  text: { label: "Text", prefix: "X", hint: "Decoration: a heading or label on the paper. Bold, resizable from its corner; not part of the reasoning." },
 };
 
 /** Toolbar groups: loose thinking, reasoning, planning. */
@@ -142,6 +148,7 @@ export const KIND_GROUPS: Kind[][] = [
   ["thought", "spark", "question", "assumption"],
   ["evidence", "claim", "conclusion"],
   ["goal", "milestone", "step", "risk", "snippet"],
+  ["text"],
 ];
 
 export const KINDS: Kind[] = KIND_GROUPS.flat();
@@ -169,5 +176,10 @@ export const ANCHOR_Y = 22;
  */
 export const STAGE: Record<Kind, number> = {
   thought: 0, spark: 0, evidence: 1, assumption: 2, snippet: 2, claim: 3, risk: 3, conclusion: 4,
-  step: 4, question: 5, milestone: 5, goal: 6,
+  step: 4, question: 5, milestone: 5, goal: 6, text: 0,
 };
+
+/** Text boxes are decoration: no links, no checks, not moved by Tidy. */
+export const isDecor = (n: { kind: Kind }) => n.kind === "text";
+export const TEXT_W = 320;
+export const TEXT_SIZE = 28;

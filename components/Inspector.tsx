@@ -6,7 +6,7 @@ import { saveImage, isUrl } from "@/lib/image";
 import { useImageSrc } from "@/lib/images";
 import { deleteWithUndo } from "@/lib/history";
 import { usePlan, useReadOnly } from "@/lib/store";
-import { BELIEF_KINDS, DEFAULT_CONFIDENCE, KIND_META, KINDS, REL_META, relVerb, type Kind, type Status } from "@/lib/types";
+import { BELIEF_KINDS, DEFAULT_CONFIDENCE, KIND_META, KINDS, REL_META, TEXT_SIZE, TEXT_W, relVerb, type Kind, type Status } from "@/lib/types";
 import { Symbol } from "./NodeCard";
 
 export default function Inspector({ id, onGenerate }: { id: string; onGenerate: () => void }) {
@@ -56,6 +56,64 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
 
   if (!node) return null;
 
+  if (node.kind === "text") {
+    const size = node.size ?? TEXT_SIZE;
+    const w = node.w ?? TEXT_W;
+    const SIZES: [string, number][] = [["S", 18], ["M", 28], ["L", 44], ["XL", 72]];
+    return (
+      <aside aria-label="Text editor" className={`bp-panel ml-auto max-h-full ${quiet ? "pointer-events-none" : "pointer-events-auto"} w-[300px] max-w-[calc(100vw-32px)] overflow-y-auto p-4 max-md:fixed max-md:inset-x-2 max-md:bottom-2 max-md:z-30 max-md:ml-0 max-md:w-auto max-md:max-w-none max-md:max-h-[58dvh]`}>
+        <div className="flex items-center gap-2">
+          <span className="bp-accent"><Symbol kind="text" size={16} /></span>
+          <span className="bp-label">Text</span>
+          <button onClick={() => usePlan.getState().select(null)} className="bp-btn bp-mono ml-auto px-3 py-1 text-[11px]" aria-label="Done" title="Close the editor">
+            Done ✕
+          </button>
+        </div>
+        <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
+          <p className="mt-1 text-[11px] leading-relaxed text-[var(--ink-faint)]">
+            Decoration on the paper: a heading or a label. It isn&apos;t linked or checked. Drag its corner to resize.
+          </p>
+          <textarea
+            aria-label="Text"
+            ref={titleRef}
+            value={node.title}
+            onChange={(e) => updateNode(id, { title: e.target.value })}
+            onFocus={(e) => e.target.value === "Heading" && e.target.select()}
+            rows={2}
+            className="bp-input mt-3 w-full resize-none px-2 py-1.5 text-[14px]"
+          />
+          <div className="bp-label mt-3">Size</div>
+          <div className="mt-1 grid grid-cols-4 gap-1">
+            {SIZES.map(([label, px]) => (
+              <button
+                key={label}
+                aria-pressed={Math.abs(size - px) < 2}
+                // Keep the box in proportion: the width scales with the type.
+                onClick={() => updateNode(id, { size: px, w: Math.max(60, Math.round((w * px) / size)) })}
+                className={`bp-btn bp-mono text-[11px] ${Math.abs(size - px) < 2 ? "border-[var(--spark)] text-[var(--spark)]" : ""}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              aria-pressed={!node.plain}
+              onClick={() => updateNode(id, { plain: !node.plain })}
+              className={`bp-btn px-3 text-[13px] font-bold ${!node.plain ? "border-[var(--spark)] text-[var(--spark)]" : ""}`}
+              title="Bold"
+              aria-label="Bold"
+            >
+              B
+            </button>
+            <span className="bp-mono text-[10px] text-[var(--ink-faint)]">{size}px · {w}px wide</span>
+            <button onClick={() => deleteWithUndo({ type: "node", id })} className="bp-btn ml-auto text-[11px]">Delete</button>
+          </div>
+        </fieldset>
+      </aside>
+    );
+  }
+
   const linkList = (label: string, items: typeof links.feeds) =>
     items.length ? (
       <div className="mt-3">
@@ -102,7 +160,7 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
           onChange={(e) => updateNode(id, { kind: e.target.value as Kind })}
           className="bp-input ml-auto w-auto py-1 text-[12px]"
         >
-          {KINDS.map((k) => (
+          {KINDS.filter((k) => k !== "text").map((k) => (
             <option key={k} value={k}>{KIND_META[k].label}</option>
           ))}
         </select>

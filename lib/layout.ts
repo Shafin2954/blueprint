@@ -31,7 +31,9 @@ export function estimateHeight(n: PlanNode): number {
  * @param frameMembers cards grouped by frame: each frame's cards are laid out as their own
  *   block (so a frame can be shrink-wrapped around exactly its cards afterwards).
  */
-export function tidy(nodes: Nodes, edges: Edges, frameMembers: string[][] = [], opts: { vertical?: boolean; maxCols?: number } = {}): Positions {
+export function tidy(allNodes: Nodes, edges: Edges, frameMembers: string[][] = [], opts: { vertical?: boolean; maxCols?: number } = {}): Positions {
+  // Text boxes stay where you put them (they're headings and labels, not part of the flow).
+  const nodes: Nodes = Object.fromEntries(Object.entries(allNodes).filter(([, n]) => n.kind !== "text"));
   const ids = Object.keys(nodes);
   if (!ids.length) return {};
   const valid = Object.values(edges).filter((e) => nodes[e.from] && nodes[e.to] && e.from !== e.to);

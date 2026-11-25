@@ -89,6 +89,9 @@ function sanitize(d: Record<string, unknown>): SharedSheet {
       ...(typeof v.link === "string" && /^https?:\/\//i.test(v.link) ? { link: str(v.link, 2000) } : {}),
       ...(typeof v.source === "string" ? { source: str(v.source, 120) } : {}),
       ...(v.image || v.imageOmitted ? { imageOmitted: true } : {}),
+      ...(typeof v.w === "number" ? { w: Math.max(60, Math.min(2000, num(v.w))) } : {}),
+      ...(typeof v.size === "number" ? { size: Math.max(8, Math.min(200, num(v.size))) } : {}),
+      ...(v.plain === true ? { plain: true } : {}),
     };
   }
   const edges: Record<string, Edge> = {};

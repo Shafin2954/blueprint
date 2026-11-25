@@ -35,7 +35,9 @@ export interface Flag {
 const BIG_VERBS = /\b(build|make|create|launch|ship|finish|design|write|develop|implement)\b/i;
 const BIG_NOUNS = /\b(app|product|platform|website|site|system|business|startup|book|everything|mvp|game|course)\b/i;
 
-export function findHoles(nodes: Nodes, edges: Edges): Flag[] {
+export function findHoles(allNodes: Nodes, edges: Edges): Flag[] {
+  // Text boxes are decoration, not thinking: leave them out of every check.
+  const nodes: Nodes = Object.fromEntries(Object.entries(allNodes).filter(([, n]) => n.kind !== "text"));
   const flags: Flag[] = [];
   const list = Object.values(nodes);
   const all = Object.values(edges);

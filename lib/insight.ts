@@ -44,7 +44,7 @@ export interface Suggestion {
 
 /** Pairs of cards with no arrow between them that keep talking about the same things. */
 export function suggestLinks(nodes: Nodes, edges: Edges, dismissed: Set<string>, limit = 6): Suggestion[] {
-  const list = Object.values(nodes);
+  const list = Object.values(nodes).filter((n) => n.kind !== "text");
   const bags = new Map(list.map((n) => [n.id, words(`${n.title} ${n.body}`)]));
   const df = new Map<string, number>();
   for (const bag of bags.values()) for (const w of bag) df.set(w, (df.get(w) ?? 0) + 1);

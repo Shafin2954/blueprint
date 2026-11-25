@@ -52,6 +52,7 @@ const ALIASES: Record<string, Kind> = {
   step: "step", task: "step", todo: "step",
   r: "risk",
   n: "snippet", code: "snippet", quote: "snippet",
+  x: "text", label: "text", heading: "text", title: "text",
 };
 
 export function kindFor(word: string): Kind | null {
