@@ -306,6 +306,25 @@ export function findHoles(nodes: Nodes, edges: Edges): Flag[] {
     }
   }
 
+  // Evidence that bears the same way on every rival answer can't help choose between them
+  // (Heuer's "diagnosticity" in the analysis of competing hypotheses).
+  for (const q of list) {
+    if (q.kind !== "question") continue;
+    const answers = supportsIn(q.id).filter((a) => a.kind === "claim" || a.kind === "conclusion");
+    if (answers.length < 2) continue;
+    const m = evidenceMatrix(answers, nodes, all);
+    const flat = m.rows.filter((r) => r.cells.every((c) => c === r.cells[0]) && r.cells[0] !== 0);
+    if (flat.length) {
+      flags.push({
+        key: `undiagnostic:${q.id}:${flat.map((r) => r.node.id).join(",")}`,
+        severity: "note",
+        title: "Doesn't help you decide",
+        detail: `${flat.map((r) => r.node.ref).join(", ")} ${flat.length > 1 ? "bear" : "bears"} the same way on every answer to ${name(q)}, so ${flat.length > 1 ? "they don't" : "it doesn't"} tell the answers apart. Look for evidence that would fit one answer and not the others.`,
+        nodeIds: [q.id, ...flat.map((r) => r.node.id)],
+      });
+    }
+  }
+
   for (const e of list) {
     if (e.kind === "question") {
       const answers = supportsIn(e.id).filter((a) => a.kind === "claim" || a.kind === "conclusion");
@@ -340,4 +359,32 @@ export function findHoles(nodes: Nodes, edges: Edges): Flag[] {
   function isTested(id: string) {
     return ins(id).some((e) => nodes[e.from]?.kind === "step");
   }
+}
+
+
+export interface MatrixRow {
+  node: PlanNode;
+  /** Per answer: +1 supports it, -1 contradicts it, 0 not linked. */
+  cells: number[];
+}
+
+/**
+ * Evidence × answers, as in the analysis of competing hypotheses: every card linked to any
+ * of the answers, and how it bears on each. Rows that differ across answers are the useful ones.
+ */
+export function evidenceMatrix(answers: PlanNode[], nodes: Nodes, edges: Edge[]): { answers: PlanNode[]; rows: MatrixRow[] } {
+  const ids = new Set(answers.map((a) => a.id));
+  const rows = new Map<string, MatrixRow>();
+  for (const e of edges) {
+    if (e.rel !== "supports" && e.rel !== "contradicts") continue;
+    let other: string | null = null;
+    let target: string | null = null;
+    if (ids.has(e.to) && !ids.has(e.from)) [other, target] = [e.from, e.to];
+    else if (e.rel === "contradicts" && ids.has(e.from) && !ids.has(e.to)) [other, target] = [e.to, e.from];
+    if (!other || !target || !nodes[other] || nodes[other].kind === "question") continue;
+    const row = rows.get(other) ?? { node: nodes[other], cells: answers.map(() => 0) };
+    row.cells[answers.findIndex((a) => a.id === target)] = e.rel === "supports" ? 1 : -1;
+    rows.set(other, row);
+  }
+  return { answers, rows: [...rows.values()].sort((a, b) => a.node.ref.localeCompare(b.node.ref, undefined, { numeric: true })) };
 }

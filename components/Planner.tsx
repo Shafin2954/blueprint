@@ -25,6 +25,7 @@ import Inspector from "./Inspector";
 import { Symbol } from "./NodeCard";
 import { Dump, EdgePanel, FramePanel, Generator, Share } from "./Panels";
 import { Help } from "./Help";
+import { Outline } from "./Outline";
 import { Start, Tour, openForTour } from "./Start";
 import type { Starter } from "@/lib/starters";
 import Sidebar from "./Sidebar";
@@ -111,7 +112,7 @@ function TitleBlock({ onSheets }: { onSheets: () => void }) {
   );
 }
 
-type Overlay = "gen" | "dump" | "share" | "help" | "start" | "sheets" | "find" | null;
+type Overlay = "gen" | "dump" | "share" | "help" | "start" | "sheets" | "find" | "outline" | null;
 
 function Toolbar({ open }: { open: (o: Overlay) => void }) {
   const { canUndo, canRedo } = useHistory();
@@ -134,6 +135,7 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
     return (
       <div className="bp-panel pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto whitespace-nowrap p-1.5 [&>*]:shrink-0">
         <button onClick={() => open("find")} className="bp-btn">Find</button>
+        <button onClick={() => open("outline")} className="bp-tool">List</button>
         <button onClick={() => fitToScreen()} className="bp-tool">Fit</button>
         <button onClick={() => open("share")} className="bp-tool">Markdown</button>
         <button onClick={() => open("help")} className="bp-btn bp-mono h-[30px] w-[30px] rounded-full p-0 text-[13px]" aria-label="Help">?</button>
@@ -208,7 +210,9 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
       </span>
       <span className="mx-1 h-5 w-px bg-[var(--line)] max-md:hidden" />
       <button onClick={tidyNow} className="bp-btn max-md:!hidden" title="Lay the sheet out left to right by how cards connect (undoable)">Tidy</button>
-      <button onClick={() => open("find")} className="bp-btn" title="Find a card (Ctrl/⌘+K)" aria-label="Find a card">Find</button>
+      <button onClick={() => open("find")} className="bp-btn max-md:!hidden" title="Find a card (Ctrl/⌘+K)" aria-label="Find a card">Find</button>
+      {/* Phones: the sheet as a readable list (it has its own filter, so it stands in for Find). */}
+      <button onClick={() => open("outline")} className="bp-btn md:!hidden" title="The sheet as a list">List</button>
       <button onClick={() => open("start")} className="bp-btn max-md:!hidden" title="Examples, a guided tour, and templates">Start</button>
       <button onClick={() => open("share")} className="bp-btn bp-btn-primary" title="Share a read-only link, or export Markdown for an AI consistency check">
         Share
@@ -229,6 +233,7 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
         items={[
           ...(window.innerWidth < 768
             ? [
+                { label: "Find a card", run: () => open("find") },
                 { label: "Start: examples, tour, templates", run: () => open("start") },
                 { label: "Sheets", run: () => open("sheets") },
                 { label: "Help", hint: "?", run: () => open("help") },
@@ -237,6 +242,7 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
           { label: "Dump thoughts", hint: "D", run: () => open("dump") },
           { label: "Generate ideas", hint: "G", run: () => open("gen") },
           { label: "Frame cards", hint: "F", run: frameNow },
+          { label: "Outline (the sheet as a list)", hint: "O", run: () => open("outline") },
           { label: "Tidy layout", hint: "", run: tidyNow },
           { label: "Fit to screen", hint: "", run: () => fitToScreen() },
           { label: "Export file", hint: "", run: exportPlan },
@@ -709,6 +715,8 @@ export default function Planner() {
         usePlan.setState({ spotlight: null });
       } else if (e.key.toLowerCase() === "g") {
         toggle("gen");
+      } else if (e.key.toLowerCase() === "o") {
+        toggle("outline");
       } else if (e.key === "/") {
         e.preventDefault();
         // Desktop: jump to the command bar, ready for a command. Phones: Find.
@@ -755,6 +763,7 @@ export default function Planner() {
             {overlay.kind === "share" && <Share key={overlay.n} onClose={close} />}
             {overlay.kind === "help" && <Help key={overlay.n} initialQuery={overlay.q} onClose={close} />}
             {overlay.kind === "find" && <Find key={overlay.n} onClose={close} />}
+            {overlay.kind === "outline" && <Outline key={overlay.n} onClose={close} />}
             {overlay.kind === "sheets" && (
               <Sheets key={overlay.n} onClose={close} onNew={() => setOverlay((o) => ({ kind: "start", n: o.n + 1 }))} />
             )}

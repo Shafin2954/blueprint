@@ -168,6 +168,8 @@ export const HELP: HelpEntry[] = [
     ["Hangs on one thread", "A conclusion rests on a single card.", "Find a second, independent reason."],
     ["Holding both sides", "You're 50%+ sure of two cards linked as contradicting.", "Decide which wins, or press “Make it a question”."],
     ["Sure of rival answers", "Two answers to the same question are both 70%+.", "Can they really both be true? Lower one, or link a contradiction."],
+    ["Doesn't help you decide", "A card bears the same way on every answer to a question (it fits them all, or cuts against them all).", "Keep it, but look for evidence that fits one answer and not the others. Big picture → Evidence × answers shows which rows differ."],
+    ["Less sure than your evidence", "What you've linked is mostly for a claim, yet you're under 50% sure of it.", "Believe it more, or add what's missing on the other side."],
     ["Where did this come from?", "Evidence with no “From”, link, image or notes.", "Say where it came from, or attach the source."],
     ["Same source, counted once", "Several cards weighing on one claim share a “From” source, so only the strongest counts.", "Nothing to fix — it's telling you repetition isn't confirmation. Find an independent source."],
     ["A wish, not a plan", "A goal with no steps leading to it.", "Press Decompose."],
@@ -309,9 +311,15 @@ export const HELP: HelpEntry[] = [
     keywords: "install app pwa home screen offline phone desktop",
   },
   {
+    id: "outline", group: "Tools", title: "Outline",
+    summary: "The sheet as an indented list: each question or goal with what leads into it.",
+    body: "Opens from List (phones), ⋯ More → Outline, or the O key. Every end point — a question, a goal, a conclusion — is listed with what leads into it underneath: answers, then the reasons for (+) and against (−) each, and steps (→). Cards that aren't linked yet are listed at the end. Type to filter; tap a card to open it on the sheet. Easiest way to read a big sheet on a phone.",
+    keywords: "outline list tree view phone mobile read overview hierarchy",
+  },
+  {
     id: "keyboard", group: "Tools", title: "Keyboard only",
     summary: "Arrows move between cards; Enter edits; L links; N adds the next card.",
-    body: "Tab to the sheet (or click empty paper), then arrow keys select the nearest card in that direction (from the middle of the screen if nothing is selected). Shift+arrows nudge the selected card. Enter edits its title. L starts a link: choose the target with arrows and press Enter. N adds the natural next card, already linked (evidence → claim → conclusion). Space gathers, C combines the gathered cards into a conclusion, F frames, T cycles a step's status, Delete removes, Esc deselects. Screen readers announce the selected card.",
+    body: "Tab to the sheet (or click empty paper), then arrow keys select the nearest card in that direction (from the middle of the screen if nothing is selected). Shift+arrows nudge the selected card. Enter edits its title. L starts a link: choose the target with arrows and press Enter. N adds the natural next card, already linked (evidence → claim → conclusion). Space gathers, C combines the gathered cards into a conclusion, F frames, T cycles a step's status, O opens the outline, Delete removes, Esc deselects. Screen readers announce the selected card.",
     keywords: "keyboard accessibility arrows shortcuts screen reader a11y navigate",
   },
   {

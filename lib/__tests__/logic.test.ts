@@ -335,3 +335,26 @@ describe("chained weighing (code review)", () => {
     expect(performance.now() - t).toBeLessThan(200);
   });
 });
+
+describe("telling answers apart", () => {
+  const q = () =>
+    board()
+      .card("q", "question")
+      .card("a", "claim")
+      .card("b", "claim")
+      .card("e1", "evidence", { source: "x" })
+      .card("e2", "evidence", { source: "y" })
+      .link("a", "q", "supports")
+      .link("b", "q", "supports");
+  it("notes evidence that fits every answer", () => {
+    const b = q().link("e1", "a", "supports").link("e1", "b", "supports").link("e2", "a", "supports");
+    const f = findHoles(b.nodes, b.edges).find((x) => x.title === "Doesn't help you decide");
+    expect(f?.nodeIds).toEqual(["q", "e1"]);
+  });
+  it("builds the evidence × answers matrix", async () => {
+    const { evidenceMatrix } = await import("../holes");
+    const b = q().link("e1", "a", "supports").link("e1", "b", "contradicts").link("e2", "b", "supports");
+    const m = evidenceMatrix([b.nodes.a, b.nodes.b], b.nodes, Object.values(b.edges));
+    expect(m.rows.map((r) => [r.node.id, r.cells])).toEqual([["e1", [1, -1]], ["e2", [0, 1]]]);
+  });
+});

@@ -5,6 +5,7 @@ import { usePlan, useReadOnly } from "@/lib/store";
 import { nextMoves, progress } from "@/lib/graph";
 import { islands, pairKey, suggestLinks } from "@/lib/insight";
 import { useHoles } from "@/lib/useHoles";
+import { evidenceMatrix } from "@/lib/holes";
 import { cachedBalance, isThin, weight, type Balance } from "@/lib/reason";
 import type { Flag, FixAction } from "@/lib/holes";
 import type { Kind, PlanNode } from "@/lib/types";
@@ -247,9 +248,63 @@ function Questions() {
               </li>
             ))}
           </ul>
+          {answers.length >= 2 && <Matrix answers={answers.map((x) => x.a)} />}
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Evidence × answers grid: which evidence actually tells the answers apart. */
+function Matrix({ answers }: { answers: PlanNode[] }) {
+  const nodes = useDeferredValue(usePlan((s) => s.nodes));
+  const edges = useDeferredValue(usePlan((s) => s.edges));
+  const m = useMemo(() => evidenceMatrix(answers, nodes, Object.values(edges)), [answers, nodes, edges]);
+  if (!m.rows.length) return null;
+  const mark = (c: number) => (c > 0 ? "+" : c < 0 ? "−" : "?");
+  return (
+    <details className="mt-2">
+      <summary className="bp-mono cursor-pointer text-[10px] uppercase tracking-[0.12em] text-[var(--ink-faint)] hover:text-[var(--ink)]">
+        Evidence × answers
+      </summary>
+      <p className="mt-1 text-[10px] leading-relaxed text-[var(--ink-faint)]">
+        + fits that answer, − cuts against it, ? not weighed against it yet. Rows that differ across answers are what decide it;
+        a row that&apos;s the same everywhere doesn&apos;t help.
+      </p>
+      <table className="bp-mono mt-1.5 w-full border-collapse text-[10px]">
+        <thead>
+          <tr>
+            <th className="text-left font-normal text-[var(--ink-faint)]" />
+            {m.answers.map((a) => (
+              <th key={a.id} title={a.title} className="px-1 font-normal text-[var(--ink-dim)]">{a.ref}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {m.rows.map((r) => {
+            const flat = r.cells.every((c) => c === r.cells[0]);
+            return (
+              <tr key={r.node.id} className={`border-t border-[var(--line)] ${flat ? "opacity-50" : ""}`} title={flat ? "Same for every answer: doesn't help decide" : undefined}>
+                <td className="max-w-0 py-0.5 pr-1">
+                  <button onClick={() => focusOn(r.node.id)} className="block w-full truncate text-left text-[var(--ink-dim)] hover:text-[var(--ink)]" title={r.node.title}>
+                    {r.node.ref} {r.node.title}
+                  </button>
+                </td>
+                {r.cells.map((c, i) => (
+                  <td
+                    key={i}
+                    className={`w-8 text-center ${c > 0 ? "text-[var(--sup)]" : c < 0 ? "text-[var(--warn)]" : "text-[var(--ink-faint)]"}`}
+                    aria-label={c > 0 ? "fits" : c < 0 ? "against" : "not weighed"}
+                  >
+                    {mark(c)}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </details>
   );
 }
 
