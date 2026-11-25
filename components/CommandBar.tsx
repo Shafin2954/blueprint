@@ -77,6 +77,9 @@ export function CommandBar() {
   // The card the previous command made, for "last" (state: the preview depends on it).
   const [last, setLast] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  // ↑ recalls history only once you've actually used the bar (clicked or typed in it), so a
+  // stray ↑ after focus lands here by accident can't re-run an old command.
+  const used = useRef(false);
 
   useEffect(() => {
     const focus = (e: Event) => {
@@ -139,7 +142,8 @@ export function CommandBar() {
       setPick((cur + (e.key === "ArrowDown" ? 1 : suggestions.length - 1)) % suggestions.length);
       return;
     }
-    if (e.key === "ArrowUp" && history.length) {
+    if (e.key.length === 1 || e.key === "Backspace") used.current = true;
+    if (e.key === "ArrowUp" && history.length && used.current) {
       e.preventDefault();
       const i = Math.min(back + 1, history.length - 1);
       setBack(i);
@@ -172,7 +176,7 @@ export function CommandBar() {
       : missing.length
         ? { tone: "warn", text: `No card ${missing.join(", ")} on this sheet.` }
         : parsed.action
-          ? { tone: "ok", text: `↵ ${describeAction(parsed.action, nodes, last)}` }
+          ? { tone: "ok", text: `↵ ${describeAction(parsed.action, nodes, last)}${parsed.warnings?.length ? ` · ${parsed.warnings.join(" · ")}` : ""}` }
           : null;
 
   return (
@@ -222,6 +226,8 @@ export function CommandBar() {
             setBack(-1);
           }}
           onKeyDown={onKeyDown}
+          onPointerDown={() => (used.current = true)}
+          onBlur={() => (used.current = false)}
           spellCheck={false}
           autoComplete="off"
           aria-label="Command bar: type a card, e.g. /evidence Rent is cheaper, conf: 70, for: C-01"

@@ -34,6 +34,8 @@ export type CommandAction =
 export interface Parsed {
   action: CommandAction | null;
   errors: string[];
+  /** Fields that don't fit this kind of card: dropped, the card is still made. */
+  warnings?: string[];
 }
 
 /** Short forms for the commands. */
@@ -194,11 +196,16 @@ function finishAdd(kind: Kind, title: string, fields: [FieldName, string][], err
       }
     }
   }
+  const warnings: string[] = [];
   if (action.confidence !== undefined && !["evidence", "claim", "conclusion", "assumption"].includes(kind)) {
-    errors.push(`conf: only applies to evidence, claims, conclusions and assumptions.`);
+    warnings.push(`conf: ignored — it only applies to evidence, claims, conclusions and assumptions`);
+    delete action.confidence;
   }
-  if (action.status && kind !== "step") errors.push("status: only applies to steps.");
-  return { action: errors.length ? null : action, errors };
+  if (action.status && kind !== "step") {
+    warnings.push("status: ignored — it only applies to steps");
+    delete action.status;
+  }
+  return { action: errors.length ? null : action, errors, warnings };
 }
 
 /** Find a card by ref ("E-01") or "last" (the card made just before). */

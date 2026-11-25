@@ -162,3 +162,12 @@ export const DEFAULT_CONFIDENCE: Partial<Record<Kind, number>> = {
 export const NODE_W = 232;
 /** Vertical offset of edge anchors from the card's top edge. */
 export const ANCHOR_Y = 22;
+
+/**
+ * Where a kind sits in the flow of reasoning/planning, left to right: what it usually
+ * links into is to its right (evidence → claim → conclusion → question; step → milestone → goal).
+ */
+export const STAGE: Record<Kind, number> = {
+  thought: 0, spark: 0, evidence: 1, assumption: 2, snippet: 2, claim: 3, risk: 3, conclusion: 4,
+  step: 4, question: 5, milestone: 5, goal: 6,
+};

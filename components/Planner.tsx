@@ -1,5 +1,6 @@
 "use client";
 
+import { NODE_W } from "@/lib/types";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePlan, useReadOnly } from "@/lib/store";
 import { CORE_KINDS, KIND_META, KINDS, type Kind } from "@/lib/types";
@@ -28,7 +29,7 @@ import type { Starter } from "@/lib/starters";
 import Sidebar from "./Sidebar";
 
 /** Show the whole sheet. When the user asks (Fit, Tidy, opening a shared link) it really fits, even if small. */
-const fitToScreen = (minK = 0.25) => {
+const fitToScreen = (minK = 0.5) => {
   const s = usePlan.getState();
   if (window.innerWidth >= 900) return s.fit(window.innerWidth, window.innerHeight, 320, s.selection ? 330 : 20, minK);
   s.select(null);
@@ -145,10 +146,14 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
     checkpoint();
     // Remember who was in each frame, lay out, then shrink-wrap the frames again.
     const members = Object.fromEntries(Object.values(st.frames).map((f) => [f.id, membersOf(f, st.nodes)]));
-    st.setPositions(tidy(st.nodes, st.edges, Object.values(members), { vertical: window.innerWidth < 768 }));
+    st.setPositions(tidy(st.nodes, st.edges, Object.values(members), {
+      vertical: window.innerWidth < 768,
+      // As many columns as fit beside the side panels at a readable zoom (0.85).
+      maxCols: Math.max(3, Math.floor((window.innerWidth - 700) / ((NODE_W + 76) * 0.85))),
+    }));
     st.refitFrames(members);
     checkpoint();
-    fitToScreen(0.6); // tidy shouldn't shrink text to nothing; pan for the rest
+    fitToScreen(0.8); // tidy shouldn't shrink text to nothing; pan for the rest
     toastUndo("Tidied the sheet");
   };
 
@@ -368,11 +373,37 @@ function Announcer() {
 function LinkBar() {
   const linking = usePlan((s) => s.linking);
   const from = usePlan((s) => (s.linking ? s.nodes[s.linking] : undefined));
+  const nodes = usePlan((s) => s.nodes);
+  const others = useMemo(
+    () => Object.values(nodes).filter((n) => n.id !== linking).sort((a, b) => a.ref.localeCompare(b.ref, undefined, { numeric: true })),
+    [nodes, linking],
+  );
   if (!linking || !from) return null;
   return (
-    <div className="bp-panel pointer-events-auto flex items-center gap-2 border-[var(--milestone)] px-3 py-2">
+    <div className="bp-panel pointer-events-auto flex flex-wrap items-center gap-2 border-[var(--milestone)] px-3 py-2">
       <span className="bp-mono text-[10px] uppercase tracking-[0.18em] text-[var(--milestone)]">Linking</span>
-      <span className="text-[12px] text-[var(--ink-dim)]">from {from.ref} — tap the card it leads to (or arrows + Enter)</span>
+      <span className="min-w-0 text-[12px] text-[var(--ink-dim)]">
+        from {from.ref} — <span className="md:hidden">tap the card it leads to, or pick:</span>
+        <span className="max-md:hidden">click the card it leads to (or arrows + Enter), or pick:</span>
+      </span>
+      {/* A list is easier than hunting for an off-screen card on a small screen. */}
+      <select
+        aria-label="Pick the card to link to"
+        value=""
+        onChange={(e) => {
+          const st = usePlan.getState();
+          const to = e.target.value;
+          st.startLinking(null);
+          if (to && st.link(linking, to)) st.selectFreshEdge();
+          else if (to) toast("Those are already linked, or the link would loop back.");
+        }}
+        className="bp-input min-w-0 max-w-[40vw] px-1 py-1 text-[12px] [@media(pointer:coarse)]:min-h-[40px]"
+      >
+        <option value="">card…</option>
+        {others.map((n) => (
+          <option key={n.id} value={n.id}>{n.ref} {n.title.slice(0, 40)}</option>
+        ))}
+      </select>
       <button onClick={() => usePlan.getState().startLinking(null)} className="bp-tool">Cancel</button>
     </div>
   );
@@ -386,7 +417,7 @@ function Toast() {
       const d = (e as CustomEvent<{ text: string; undo: boolean }>).detail;
       setMsg((m) => ({ ...d, n: (m?.n ?? 0) + 1 }));
       clearTimeout(timer);
-      timer = setTimeout(() => setMsg(null), 5000);
+      timer = setTimeout(() => setMsg(null), d.undo ? 4500 : 3500);
     };
     // After Undo/Redo the "… · Undo" message is stale.
     const undid = () => setMsg(null);
@@ -571,12 +602,14 @@ export default function Planner() {
       // otherwise typing (or a stray key after closing a panel) fires them.
       // Nothing focused (e.g. right after a reload) and you start typing words: that's text,
       // not shortcuts — send it to the command bar. Shortcuts work once the sheet has focus.
-      if (t === document.body && window.innerWidth >= 768 && !s.viewing && /^[\p{L}\p{N}]$/u.test(e.key)) {
+      // With a card selected, though, letters are shortcuts for it (N, L, T…), never text.
+      if (t === document.body && s.selection) document.querySelector<HTMLElement>(".bp-paper")?.focus();
+      else if (t === document.body && window.innerWidth >= 768 && !s.viewing && /^[\p{L}\p{N}]$/u.test(e.key)) {
         // Focus the bar now, during this keydown: the browser then types this same key into it.
         window.dispatchEvent(new CustomEvent("blueprint-command-focus"));
         return;
       }
-      const onSheet = !onControl && !inPanel;
+      const onSheet = (!onControl && !inPanel) || (t === document.body && !!s.selection);
       const toggle = (kind: Overlay) => setOverlay((o) => ({ kind: o.kind === kind ? null : kind, n: o.n + 1 }));
       const selNode = s.selection?.type === "node" ? s.nodes[s.selection.id] : undefined;
       const ARROWS: Record<string, Dir> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" };

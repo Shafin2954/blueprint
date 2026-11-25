@@ -31,7 +31,7 @@ export function estimateHeight(n: PlanNode): number {
  * @param frameMembers cards grouped by frame: each frame's cards are laid out as their own
  *   block (so a frame can be shrink-wrapped around exactly its cards afterwards).
  */
-export function tidy(nodes: Nodes, edges: Edges, frameMembers: string[][] = [], opts: { vertical?: boolean } = {}): Positions {
+export function tidy(nodes: Nodes, edges: Edges, frameMembers: string[][] = [], opts: { vertical?: boolean; maxCols?: number } = {}): Positions {
   const ids = Object.keys(nodes);
   if (!ids.length) return {};
   const valid = Object.values(edges).filter((e) => nodes[e.from] && nodes[e.to] && e.from !== e.to);
@@ -135,15 +135,20 @@ export function tidy(nodes: Nodes, edges: Edges, frameMembers: string[][] = [], 
       continue;
     }
     const heights = filled.map((c) => c.reduce((s, id) => s + estimateHeight(nodes[id]), 0) + GAP_Y * Math.max(0, c.length - 1));
-    const tallest = Math.max(...heights);
-    filled.forEach((c, ci) => {
-      let y = top + (tallest - heights[ci]) / 2;
-      for (const id of c) {
-        pos[id] = { x: snap(ci * COL), y: snap(y) };
-        y += estimateHeight(nodes[id]) + GAP_Y;
-      }
-    });
-    top += tallest + GROUP_GAP;
+    // A long chain wraps into bands of columns (like lines of text) instead of one endless row.
+    const per = Math.max(2, opts.maxCols ?? Infinity);
+    for (let start = 0; start < filled.length; start += per) {
+      const band = filled.slice(start, start + per);
+      const tallest = Math.max(...heights.slice(start, start + per));
+      band.forEach((c, i) => {
+        let y = top + (tallest - heights[start + i]) / 2;
+        for (const id of c) {
+          pos[id] = { x: snap(i * COL), y: snap(y) };
+          y += estimateHeight(nodes[id]) + GAP_Y;
+        }
+      });
+      top += tallest + (start + per < filled.length ? GAP_Y * 2 : GROUP_GAP);
+    }
   }
 
   // Unlinked cards: a grid underneath, oldest first.

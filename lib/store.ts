@@ -7,7 +7,7 @@ import { wouldCycle } from "./graph";
 import { defaultRel } from "./reason";
 import { fitAround } from "./frames";
 import { estimateHeight, findFreeSpot } from "./layout";
-import { BELIEF_KINDS, DEFAULT_CONFIDENCE, KIND_META, type Edge, type Frame, type Kind, type PlanNode, type Rel, type Status, type Strength, type View } from "./types";
+import { BELIEF_KINDS, DEFAULT_CONFIDENCE, KIND_META, type Edge, type Frame, type Kind, type PlanNode, type Rel, type Status, type Strength, type View, STAGE } from "./types";
 
 type Selection = { type: "node" | "edge" | "frame"; id: string } | null;
 
@@ -335,7 +335,8 @@ export const usePlan = create<PlanState>()(
         const cols = Math.min(4, Math.max(2, Math.ceil(Math.sqrt(clean.length))));
         clean.forEach((line, i) => {
           const [title, ...rest] = line.split(/(?<=[.?!])\s+/);
-          get().addNode("thought", ox + (i % cols) * 264, oy + Math.floor(i / cols) * 132, title.slice(0, 140), rest.join(" "));
+          // A line that asks something is a question (same rule as the command bar).
+          get().addNode(/\?\s*$/.test(title) ? "question" : "thought", ox + (i % cols) * 264, oy + Math.floor(i / cols) * 132, title.slice(0, 140), rest.join(" "));
         });
         const rows = Math.ceil(clean.length / cols);
         const k = Math.min(1, get().view.k < 0.7 ? 0.8 : get().view.k);
@@ -480,10 +481,12 @@ export const usePlan = create<PlanState>()(
           x = at.x;
           y = at.y;
         } else if (sel) {
-          // Same kind as the selected card: stack under it (a column of evidence);
-          // a different kind: next column to the right (evidence → claim → conclusion).
-          x = sel.kind === kind ? sel.x : sel.x + 300;
-          y = sel.kind === kind ? sel.y + 140 : sel.y;
+          // Same stage as the selected card: stack under it (a column of evidence). Otherwise
+          // left if it usually links into the selected card (evidence for a claim, a step for a
+          // goal), right if the other way round — so links run forwards instead of looping back.
+          const d = STAGE[kind] - STAGE[sel.kind];
+          x = d === 0 ? sel.x : sel.x + (d < 0 ? -300 : 300);
+          y = d === 0 ? sel.y + 140 : sel.y;
         } else {
           const a = visibleArea(window.innerWidth, window.innerHeight, false);
           x = ((a.left + a.right) / 2 - s.view.x) / s.view.k - 116;
@@ -516,7 +519,7 @@ export const usePlan = create<PlanState>()(
         const maxX = Math.max(...list.map((n) => n.x + 232));
         const maxY = Math.max(...list.map((n) => n.y + 140));
         const phone = w < 768;
-        const top = phone ? 150 : 120;
+        const top = (phone ? 150 : 120) + (get().viewing ? 56 : 0); // the shared-sheet banner sits up there too
         const bottom = phone ? 24 : 90; // desktop: leave room for the command bar
         const side = phone ? 16 : 40;
         const aw = Math.max(200, w - padLeft - padRight - side);

@@ -218,10 +218,11 @@ function NodeCard({
             }}
             onKeyDown={(e) => {
               e.stopPropagation();
-              if (e.key === "Enter" && !e.shiftKey) (e.target as HTMLTextAreaElement).blur();
-              if (e.key === "Escape") {
-                (e.target as HTMLTextAreaElement).value = node.title;
+              // Enter or Esc: keep what you typed (like the editor's fields) and go back to the sheet.
+              if ((e.key === "Enter" && !e.shiftKey) || e.key === "Escape") {
+                e.preventDefault();
                 (e.target as HTMLTextAreaElement).blur();
+                document.querySelector<HTMLElement>(".bp-paper")?.focus();
               }
             }}
             className="bp-input -mx-1 w-[calc(100%+8px)] resize-none px-1 py-0.5 text-[14px] leading-snug"
@@ -282,19 +283,19 @@ function NodeCard({
         {(belief || weighed) && (
           <div className="mt-2.5 flex items-center gap-2">
             {belief && (
-              <span className="bp-mono shrink-0 text-[11px] text-[var(--ink-dim)]" title="How sure you said you are">
-                you {Math.round(weight(node))}%
+              <span className="bp-mono shrink-0 text-[11px] text-[var(--ink-dim)]" title={readOnly ? "How sure the author said they are" : "How sure you said you are"}>
+                {readOnly ? "author" : "you"} {Math.round(weight(node))}%
               </span>
             )}
             {weighed && (
               <span
                 className="flex flex-1 items-center gap-1.5"
-                title={`Evidence linked to this card: ${forW} for, ${againstW} against. Each linked card adds how sure it is (×0.5 weak, ×1.5 strong link)${thin ? " — too little to judge yet" : ""}`}
+                title={`Evidence: ${forW} for, ${againstW} against — each linked card adds how sure it is (×0.5 weak link, ×1.5 strong)${thin ? ". Too little to judge yet: needs at least two reasons" : ""}`}
               >
                 <span className={`flex h-[4px] flex-1 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--warn)_70%,transparent)] ${thin ? "opacity-35" : ""}`}>
                   <span className="h-full bg-[var(--sup)]" style={{ width: `${(forW / (forW + againstW || 1)) * 100}%` }} />
                 </span>
-                <span className="bp-mono shrink-0 text-[10px] text-[var(--ink-dim)]">{thin ? "too little" : `${forW} for · ${againstW} vs`}</span>
+                <span className="bp-mono shrink-0 text-[10px] text-[var(--ink-dim)]">{thin ? "too little" : `${Math.round((forW / (forW + againstW)) * 100)}% for`}</span>
               </span>
             )}
           </div>

@@ -55,7 +55,10 @@ describe("command bar parser", () => {
   it("explains mistakes instead of guessing", () => {
     expect(parseCommand("/evidance Something").errors[0]).toMatch(/Did you mean \/evidence/);
     expect(parseCommand("/claim X, conf: 150").errors[0]).toMatch(/0–100/);
-    expect(parseCommand("/goal X, conf: 50").errors[0]).toMatch(/only applies/);
+    const p = parseCommand("/goal X, conf: 50");
+    expect(p.action).toMatchObject({ kind: "goal", title: "X" });
+    expect(p.action).not.toHaveProperty("confidence");
+    expect(p.warnings?.[0]).toMatch(/only applies/);
     expect(parseCommand("/claim").errors[0]).toMatch(/title/);
     expect(parseCommand("/claim X, for: banana").errors[0]).toMatch(/isn't a card ref/);
     expect(parseCommand("/link E-01").errors[0]).toMatch(/Usage/);

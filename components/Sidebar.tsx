@@ -19,7 +19,7 @@ function Ref({ n }: { n: PlanNode }) {
     <button
       onClick={() => focusOn(n.id)}
       title={n.title}
-      className={`bp-${n.kind} bp-mono inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-sm border border-[var(--line)] px-1.5 py-0.5 text-[10px] text-[var(--ink-dim)] hover:text-[var(--ink)]`}
+      className={`bp-${n.kind} bp-mono inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-sm border border-[var(--line)] px-1.5 py-0.5 text-[10px] text-[var(--ink-dim)] hover:text-[var(--ink)] [@media(pointer:coarse)]:min-h-[36px] [@media(pointer:coarse)]:px-2.5`}
     >
       <span className="bp-accent"><Symbol kind={n.kind} size={10} /></span>
       {n.ref}
@@ -174,7 +174,7 @@ function Meter({ score }: { score: number | null }) {
   );
 }
 
-const rank = (b: ReturnType<typeof balance>) => (b.score === null ? 0 : isThin(b) ? 1 : 2);
+const rank = (b: ReturnType<typeof balance>) => (b.score === null ? 0 : 1);
 
 const reasonsText = (b: ReturnType<typeof balance>) => {
   const n = b.pro.length + b.con.length;
@@ -197,7 +197,7 @@ function Questions() {
           .map((e) => nodes[e.from])
           .filter((a) => a.kind === "claim" || a.kind === "conclusion")
           .map((a) => ({ a, b: balance(a.id, nodes, edges) }))
-          // Judgeable answers first (by net evidence), then thin ones, then those with none.
+          // By net evidence (weight for minus against); answers with no evidence at all last.
           .sort((x, y) => rank(y.b) - rank(x.b) || (y.b.forW - y.b.againstW) - (x.b.forW - x.b.againstW));
         return { q, answers };
       })
@@ -215,7 +215,7 @@ function Questions() {
   return (
     <ul className="space-y-3">
       <li className="text-[11px] leading-relaxed text-[var(--ink-faint)]">
-        Ranked by the evidence linked to each answer (green for, red against) — not by how sure you said you are.
+        Ranked by the evidence linked to each answer (green for, red against: the weight for minus the weight against) — not by how sure you said you are.
         With only one reason, or very little weight either way, it says “too little to judge” rather than a percentage.
       </li>
       {qs.map(({ q, answers }) => (

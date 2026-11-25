@@ -16,9 +16,9 @@ import { MIN_FRAME, membersOf } from "@/lib/frames";
 import type { Frame } from "@/lib/types";
 
 type Gesture =
-  | { mode: "pan"; sx: number; sy: number; vx: number; vy: number; moved: boolean }
+  | { mode: "pan"; sx: number; sy: number; vx: number; vy: number; moved: boolean; port?: { from: string; t: number } }
   | { mode: "drag"; id: string; ox: number; oy: number; moved: boolean }
-  | { mode: "connect"; from: string; x: number; y: number }
+  | { mode: "connect"; from: string; x: number; y: number; touch?: boolean }
   | { mode: "pinch"; d0: number; k0: number; vx: number; vy: number; mx: number; my: number }
   | { mode: "frame"; id: string; ox: number; oy: number; fx: number; fy: number; members: Record<string, { x: number; y: number }> }
   | { mode: "resize"; id: string; sx: number; sy: number; w: number; h: number }
@@ -182,6 +182,10 @@ export default function Board() {
       const members = Object.fromEntries(membersOf(f, st.nodes).map((id) => [id, { x: st.nodes[id].x, y: st.nodes[id].y }]));
       gesture.current = { mode: "frame", id: f.id, ox: p.x, oy: p.y, fx: f.x, fy: f.y, members };
       select({ type: "frame", id: f.id });
+    } else if (port && e.pointerType !== "mouse") {
+      // Touch: a swipe that starts on a dot still pans; hold the dot first to draw a link.
+      const v = usePlan.getState().view;
+      gesture.current = { mode: "pan", sx: e.clientX, sy: e.clientY, vx: v.x, vy: v.y, moved: false, port: { from: port.dataset.port!, t: e.timeStamp } };
     } else if (port) {
       const id = port.dataset.port!;
       const p = toWorld(e.clientX, e.clientY);
@@ -227,6 +231,13 @@ export default function Board() {
       const k = Math.min(2, Math.max(0.25, (g.k0 * Math.hypot(a.x - b.x, a.y - b.y)) / g.d0));
       // Keep the point under the fingers' midpoint fixed while zooming.
       setView({ k, x: g.mx - ((g.mx - g.vx) * k) / g.k0, y: g.my - ((g.my - g.vy) * k) / g.k0 });
+      return;
+    }
+    if (g.mode === "pan" && g.port && !g.moved && e.timeStamp - g.port.t > 350) {
+      // Held the dot, now dragging: this is a link.
+      const p = toWorld(e.clientX, e.clientY);
+      gesture.current = { mode: "connect", from: g.port.from, ...p, touch: true };
+      setTemp({ from: g.port.from, ...p });
       return;
     }
     if (g.mode === "pan") {
@@ -296,13 +307,21 @@ export default function Board() {
       if (to && to !== g.from) {
         if (link(g.from, to)) usePlan.getState().selectFreshEdge();
         else flash("Those are already linked, or the link would loop back on itself.");
+      } else if (!to && g.touch) {
+        flash("Drop on a card to link — or use “Link to…” in the card's editor.");
       } else if (!to) {
         // Dropped on empty paper: sketch whatever naturally comes next, right there.
-        const kind = NEXT_KIND[usePlan.getState().nodes[g.from]?.kind ?? "step"] ?? "step";
+        const fromKind = usePlan.getState().nodes[g.from]?.kind ?? "step";
+        const kind = NEXT_KIND[fromKind] ?? "step";
         const id = addNode(kind, g.x, g.y - ANCHOR_Y, kind === "step" ? "Next step" : "");
-        link(g.from, id);
+        // A step drawn out of a goal or milestone is a step towards it: it feeds in.
+        const into = (fromKind === "goal" || fromKind === "milestone") && kind === "step";
+        if (into) link(id, g.from);
+        else link(g.from, id);
         const st = usePlan.getState();
-        toastUndo(`Dropped on empty paper: added ${st.nodes[id]?.ref ?? "a card"}, linked from ${st.nodes[g.from]?.ref ?? "the card"}`);
+        const a = st.nodes[id]?.ref ?? "a card";
+        const b = st.nodes[g.from]?.ref ?? "the card";
+        toastUndo(`Dropped on empty paper: added ${a}, ${into ? `feeding ${b}` : `linked from ${b}`}`);
       }
     }
   };
@@ -365,6 +384,16 @@ export default function Board() {
   const list = Object.values(nodes);
   const grid = 24 * view.k;
   const major = grid * 5;
+
+  // Panned or zoomed so far that no card is in view: offer a way back.
+  const lost =
+    list.length > 0 &&
+    typeof window !== "undefined" &&
+    !list.some((n) => {
+      const x = n.x * view.k + view.x;
+      const y = n.y * view.k + view.y;
+      return x + NODE_W * view.k > 0 && x < window.innerWidth && y + 100 * view.k > 0 && y < window.innerHeight;
+    });
 
   return (
     <div
@@ -489,6 +518,19 @@ export default function Board() {
             <span className="md:hidden">Blank sheet. Tap + Add for a card, or ⋯ More → Start for examples.</span>
           </p>
         </div>
+      )}
+
+      {lost && (
+        <button
+          data-nodrag
+          onClick={() => {
+            const w = window.innerWidth;
+            usePlan.getState().fit(w, window.innerHeight, w >= 900 ? 320 : 0, 20, 0.5);
+          }}
+          className="bp-btn pointer-events-auto absolute bottom-28 left-1/2 -translate-x-1/2 px-3 py-1.5 text-[12px] max-md:bottom-6"
+        >
+          {list.length} card{list.length === 1 ? " is" : "s are"} off-screen — show {list.length === 1 ? "it" : "them"}
+        </button>
       )}
 
       {refused && (

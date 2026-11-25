@@ -316,7 +316,7 @@ export function EdgePanel({ id }: { id: string }) {
           <button
             key={r}
             onClick={() => setErr(!setRel(id, r))}
-            className={`bp-mono rounded-sm border px-1 py-1.5 text-[10px] uppercase tracking-[0.06em] bp-rel-${r} ${
+            className={`bp-mono rounded-sm border px-1 py-1.5 text-[10px] uppercase [@media(pointer:coarse)]:min-h-[44px] tracking-[0.06em] bp-rel-${r} ${
               rel === r ? "bp-rel-active" : "border-[var(--line)] text-[var(--ink-faint)]"
             }`}
           >
@@ -334,7 +334,7 @@ export function EdgePanel({ id }: { id: string }) {
                 key={k}
                 onClick={() => setStrength(id, k)}
                 aria-pressed={(edge.strength ?? "normal") === k}
-                className={`bp-mono rounded-sm border px-1 py-1.5 text-[10px] uppercase tracking-[0.04em] ${
+                className={`bp-mono rounded-sm border px-1 py-1.5 text-[10px] uppercase [@media(pointer:coarse)]:min-h-[44px] tracking-[0.04em] ${
                   (edge.strength ?? "normal") === k ? "border-[var(--spark)] text-[var(--spark)]" : "border-[var(--line)] text-[var(--ink-faint)]"
                 }`}
               >

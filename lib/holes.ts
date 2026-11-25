@@ -217,13 +217,22 @@ export function findHoles(nodes: Nodes, edges: Edges): Flag[] {
     }
 
     if (reasons.length) {
-      const best = Math.max(...reasons.map(weight));
+      // Independent reasons add up: two 70% reasons together justify more than 70%
+      // (the chance that at least one holds). Same-source cards count once.
+      const bySource = new Map<string, number>();
+      for (const r of reasons) {
+        const k = r.source?.trim().toLowerCase() || `#${r.id}`;
+        bySource.set(k, Math.max(bySource.get(k) ?? 0, weight(r)));
+      }
+      const best = Math.round(100 * (1 - [...bySource.values()].reduce((p, w) => p * (1 - w / 100), 1)));
       if (sure > best + 15) {
         flags.push({
           key: `over:${n.id}:${Math.round(sure)}:${Math.round(best)}`,
           severity: "gap",
           title: "More sure than your reasons",
-          detail: `You're ${pct(n)} sure of ${name(n)}, but your strongest reason for it is only ${Math.round(best)}%. A chain is as strong as its best link at most.`,
+          detail: reasons.length === 1
+            ? `You're ${pct(n)} sure of ${name(n)}, but the one reason for it is only ${best}% sure. A belief can't be surer than everything holding it up.`
+            : `You're ${pct(n)} sure of ${name(n)}, but even if your reasons for it are independent, together they only get to about ${best}%.`,
           nodeIds: [n.id, ...reasons.map((r) => r.id)],
         });
       }
@@ -231,7 +240,9 @@ export function findHoles(nodes: Nodes, edges: Edges): Flag[] {
 
     // Belief and evidence pointing different ways (either way round), once there's enough to judge.
     const evid = bal.score === null ? null : Math.round(bal.score * 100);
-    const doubtful = evid !== null && !isThin(bal) && Math.abs(sure - evid) > 15;
+    // One strong, unopposed reason is enough to notice you're far less sure than it.
+    const lone = bal.con.length === 0 && bal.forW >= 60 && sure < 40;
+    const doubtful = evid !== null && (!isThin(bal) || lone) && Math.abs(sure - evid) > 15;
     if (doubtful && sure > 50 && evid! < 50) {
       flags.push({
         key: `belief:${n.id}:${bal.con.map((c) => c.id).join(",")}`,

@@ -286,3 +286,23 @@ describe("belief vs evidence, both ways", () => {
     expect(titles(b)).not.toContain("Risk without a counter-move");
   });
 });
+
+describe("round 6 checks", () => {
+  it("flags a lone strong reason you barely believe", () => {
+    const b = board().card("c", "claim", { confidence: 25 }).card("e", "evidence", { confidence: 70 }).link("e", "c", "supports");
+    expect(titles(b)).toContain("Less sure than your evidence");
+  });
+  it("lets independent reasons add up before calling you overconfident", () => {
+    const b = board()
+      .card("c", "claim", { confidence: 85 })
+      .card("e1", "evidence", { confidence: 70, source: "a" })
+      .card("e2", "evidence", { confidence: 70, source: "b" })
+      .link("e1", "c", "supports")
+      .link("e2", "c", "supports");
+    expect(titles(b)).not.toContain("More sure than your reasons");
+  });
+  it("still flags it with a single weaker reason", () => {
+    const b = board().card("c", "claim", { confidence: 90 }).card("e", "evidence", { confidence: 60 }).link("e", "c", "supports");
+    expect(titles(b)).toContain("More sure than your reasons");
+  });
+});

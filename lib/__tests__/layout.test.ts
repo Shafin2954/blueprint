@@ -93,3 +93,14 @@ describe("tidy on a phone", () => {
     }
   });
 });
+
+describe("tidy wraps long chains", () => {
+  it("keeps a 7-step chain within 3 columns, without overlaps", () => {
+    let b = board();
+    for (let i = 0; i < 7; i++) b = b.card(`s${i}`, "step");
+    for (let i = 0; i < 6; i++) b = b.link(`s${i}`, `s${i + 1}`);
+    const pos = tidy(b.nodes, b.edges, [], { maxCols: 3 });
+    expect(new Set(Object.values(pos).map((p) => p.x)).size).toBe(3);
+    expect(overlaps(pos, b.nodes)).toBeNull();
+  });
+});
