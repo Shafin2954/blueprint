@@ -148,7 +148,8 @@ export function findHoles(nodes: Nodes, edges: Edges): Flag[] {
     if (a.kind === "evidence" || b.kind === "evidence") continue;
     // A risk "against" a goal is a threat, not a belief you hold.
     if (a.kind === "risk" || b.kind === "risk") continue;
-    if (weight(a) < 50 || weight(b) < 50) continue;
+    // Only when you actually lean towards both (50% is "no idea", not a belief).
+    if (weight(a) <= 50 || weight(b) <= 50) continue;
     flags.push({
       key: `contra:${e.id}`,
       severity: "hole",

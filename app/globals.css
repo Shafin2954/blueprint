@@ -365,3 +365,4 @@ body {
 @media (max-width: 767px) {
   .bp-menu { bottom: max(0.5rem, env(safe-area-inset-bottom)) !important; max-height: calc(100dvh - 120px) !important; }
 }
+@media (max-width: 767px) { .bp-toolbar { padding-right: 18px; -webkit-mask-image: none; mask-image: none; } }

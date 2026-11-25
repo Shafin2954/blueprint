@@ -5,7 +5,7 @@ import { usePlan } from "@/lib/store";
 import { isDone, progress } from "@/lib/graph";
 import type { Severity } from "@/lib/holes";
 import { BELIEF_KINDS, KIND_META, NODE_W, type Kind, type PlanNode } from "@/lib/types";
-import { balance, weight } from "@/lib/reason";
+import { balance, isThin, weight } from "@/lib/reason";
 import { hostOf, looksLikeImage } from "@/lib/image";
 import { useImageSrc } from "@/lib/images";
 
@@ -150,9 +150,9 @@ function NodeCard({
   const weighed = usePlan((s) => {
     if (!WEIGHED.has(node.kind)) return "";
     const b = balance(node.id, s.nodes, s.edges);
-    return b.score === null ? "" : `${Math.round(b.forW)}/${Math.round(b.againstW)}`;
+    return b.score === null ? "" : `${Math.round(b.forW)}/${Math.round(b.againstW)}/${isThin(b) ? 1 : 0}`;
   });
-  const [forW, againstW] = weighed ? weighed.split("/").map(Number) : [0, 0];
+  const [forW, againstW, thin] = weighed ? weighed.split("/").map(Number) : [0, 0, 0];
   const belief = BELIEF_KINDS.has(node.kind);
   const img = useImageSrc(node.image);
   const editing = usePlan((s) => s.editing === node.id);
@@ -282,13 +282,17 @@ function NodeCard({
         {(belief || weighed) && (
           <div className="mt-2.5 flex items-center gap-2">
             {belief && (
-              <span className="bp-mono shrink-0 text-[11px] text-[var(--ink-dim)]" title="How sure you are">
-                {Math.round(weight(node))}% sure
+              <span className="bp-mono shrink-0 text-[11px] text-[var(--ink-dim)]" title="How sure you said you are">
+                you {Math.round(weight(node))}%
               </span>
             )}
             {weighed && (
-              <span className="flex flex-1 items-center gap-1.5" title={`Weighed: ${forW} for, ${againstW} against`}>
-                <span className="flex h-[4px] flex-1 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--warn)_70%,transparent)]">
+              <span
+                className="flex flex-1 items-center gap-1.5"
+                title={`Evidence weight linked to this card: ${forW} for, ${againstW} against${thin ? " — too little to judge" : ""}`}
+              >
+                <span className="bp-mono text-[10px] text-[var(--ink-faint)]">evidence</span>
+                <span className={`flex h-[4px] flex-1 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--warn)_70%,transparent)] ${thin ? "opacity-35" : ""}`}>
                   <span className="h-full bg-[var(--sup)]" style={{ width: `${(forW / (forW + againstW || 1)) * 100}%` }} />
                 </span>
                 <span className="bp-mono text-[10px] text-[var(--ink-dim)]">+{forW} −{againstW}</span>

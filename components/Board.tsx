@@ -9,6 +9,7 @@ import { ANCHOR_Y, NODE_W, STRENGTH, type PlanNode } from "@/lib/types";
 import { saveImage, isUrl } from "@/lib/image";
 import NodeCard from "./NodeCard";
 import { NEXT_KIND, nearestTo } from "@/lib/keyboard";
+import { armGhostGuard } from "@/lib/ghost";
 import { routeLink, type Route } from "@/lib/routing";
 import { MIN_FRAME, membersOf } from "@/lib/frames";
 import type { Frame } from "@/lib/types";
@@ -130,17 +131,26 @@ export default function Board() {
     setTemp(null);
   };
 
+  // Capture can throw (e.g. the pointer already ended); dragging just works less smoothly then.
+  const capture = (e: React.PointerEvent) => {
+    try {
+      ref.current!.setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.pointerType === "touch") {
       touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.current.size === 2) {
-        ref.current!.setPointerCapture(e.pointerId);
+        capture(e);
         return startPinch();
       }
       if (touches.current.size > 2) return;
     }
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
+    // Tapping a card, link or frame opens a panel: swallow the stray click that follows.
+    if (target.closest("[data-node-id], [data-edge], [data-frame-handle]")) armGhostGuard();
     const port = target.closest<HTMLElement>("[data-port]");
     const frameHandle = target.closest<HTMLElement>("[data-frame-handle]");
     const frameResize = target.closest<HTMLElement>("[data-frame-resize]");
@@ -152,7 +162,7 @@ export default function Board() {
       else if (!target.closest("[data-edge]")) {
         const v = usePlan.getState().view;
         gesture.current = { mode: "pan", sx: e.clientX, sy: e.clientY, vx: v.x, vy: v.y, moved: false };
-        ref.current!.setPointerCapture(e.pointerId);
+        capture(e);
       }
       return;
     }
@@ -203,7 +213,7 @@ export default function Board() {
     } else {
       return;
     }
-    ref.current!.setPointerCapture(e.pointerId);
+    capture(e);
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -421,6 +431,7 @@ export default function Board() {
                   fill="none"
                   onPointerDown={(ev) => {
                     ev.stopPropagation();
+                    armGhostGuard();
                     select({ type: "edge", id: e.id });
                   }}
                 />
@@ -471,7 +482,8 @@ export default function Board() {
       {list.length === 0 && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center px-6">
           <p className="bp-mono max-w-sm text-center text-xs uppercase leading-relaxed tracking-[0.16em] text-[var(--ink-dim)]">
-            Blank sheet. Add a card from the toolbar, or press Start for examples and templates.
+            <span className="max-md:hidden">Blank sheet. Add a card from the toolbar, type into the bar below, or press Start for examples.</span>
+            <span className="md:hidden">Blank sheet. Tap + Add for a card, or ⋯ More → Start for examples.</span>
           </p>
         </div>
       )}

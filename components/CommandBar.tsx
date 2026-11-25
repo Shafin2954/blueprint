@@ -73,14 +73,15 @@ export function CommandBar() {
     }
   });
   const [back, setBack] = useState(-1);
+  const [lastCmd, setLastCmd] = useState("");
   // The card the previous command made, for "last" (state: the preview depends on it).
   const [last, setLast] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const focus = (e: Event) => {
-      input.current?.focus();
-      const start = (e as CustomEvent<string>).detail;
+      input.current?.focus(); // synchronous, so a key being pressed right now lands here
+      const start = (e as CustomEvent<string | undefined>).detail;
       if (start && !text) setText(start);
     };
     window.addEventListener("blueprint-command-focus", focus);
@@ -112,12 +113,18 @@ export function CommandBar() {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
     } catch {}
     setBack(-1);
-    // Keep the command word, so a run of "/evidence …" lines is quick to type.
-    const m = text.match(/^\/\S+\s/);
-    setText(m ? m[0] : "");
+    // Clear the bar (a kept prefix caused "/goal /step …" mistakes); Tab brings the word back.
+    const m = text.match(/^\/\S+/);
+    setLastCmd(m ? m[0] : "");
+    setText("");
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Tab" && !text && lastCmd) {
+      e.preventDefault();
+      setText(`${lastCmd} `);
+      return;
+    }
     if (suggestions.length && (e.key === "Tab" || (e.key === "Enter" && !parsed.action))) {
       e.preventDefault();
       setText(`/${suggestions[cur][0]} `);
@@ -215,7 +222,7 @@ export function CommandBar() {
           spellCheck={false}
           autoComplete="off"
           aria-label="Command bar: type a card, e.g. /evidence Rent is cheaper, conf: 70, for: C-01"
-          placeholder="/evidence Rent is cheaper, conf: 70, for: C-01 — or just type a thought"
+          placeholder={lastCmd ? `Tab: ${lastCmd} again · or type /command, or just a thought` : "/evidence Rent is cheaper, conf: 70, for: C-01 — or just type a thought"}
           className="bp-mono min-w-0 flex-1 bg-transparent text-[13px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)]"
         />
         <button

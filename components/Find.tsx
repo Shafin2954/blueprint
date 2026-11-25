@@ -58,7 +58,10 @@ export function Find({ onClose }: { onClose: () => void }) {
           aria-controls="bp-find-results"
           className="min-w-0 flex-1 bg-transparent py-1.5 text-[14px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)]"
         />
-        <button onClick={onClose} className="bp-mono text-[11px] text-[var(--ink-dim)] hover:text-[var(--ink)]">esc</button>
+        <button onClick={onClose} aria-label="Close" className="bp-mono text-[11px] text-[var(--ink-dim)] hover:text-[var(--ink)]">
+          <span className="max-md:hidden">esc</span>
+          <span className="md:hidden">close ✕</span>
+        </button>
       </div>
       {!q && results.length > 0 && <div className="bp-label px-4 pt-3">Recent</div>}
       <ul id="bp-find-results" role="listbox" className="min-h-0 flex-1 overflow-y-auto p-2">

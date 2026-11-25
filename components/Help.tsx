@@ -61,7 +61,7 @@ function Entry({ e, open, onToggle }: { e: HelpEntry; open: boolean; onToggle: (
       </button>
       {open && (
         <div className="space-y-2.5 px-3 pb-3 pl-[38px] text-[12px] leading-relaxed text-[var(--ink-dim)]">
-          <p>{e.body}</p>
+          <p className="whitespace-pre-line">{e.body}</p>
           {e.fix && (
             <p>
               <span className="bp-label mr-1.5 text-[var(--ok)]">Fix</span>

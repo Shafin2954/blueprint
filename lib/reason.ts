@@ -31,24 +31,49 @@ const sourceKey = (n: PlanNode) => n.source?.trim().toLowerCase() || `#${n.id}`;
  * Sum one side, counting each source once (at its strongest card), so the same
  * rumor repeated on three cards doesn't look like three independent reasons.
  */
-function side(entries: { n: PlanNode; mult: number }[]): { w: number; echoes: number } {
+function side(entries: { w: number; n: PlanNode }[]): { w: number; echoes: number } {
   const best = new Map<string, number>();
-  for (const { n, mult } of entries) best.set(sourceKey(n), Math.max(best.get(sourceKey(n)) ?? 0, weight(n) * mult));
+  for (const { n, w } of entries) best.set(sourceKey(n), Math.max(best.get(sourceKey(n)) ?? 0, w));
   let w = 0;
   for (const v of best.values()) w += v;
   return { w: Math.round(w), echoes: entries.length - best.size };
 }
 
+const CHAINED = new Set<Kind>(["claim", "conclusion", "assumption"]);
+
+/**
+ * How much a card counts as a reason. Evidence counts at face value (its confidence).
+ * A claim, conclusion or assumption also has evidence of its own: it counts as its
+ * confidence × how well that evidence holds up — so support passes along a chain, and a
+ * claim whose own evidence leans against it can't make a conclusion look certain.
+ */
+export function effectiveWeight(n: PlanNode, nodes: Nodes, edges: Edges, seen = new Set<string>()): number {
+  const w = weight(n);
+  if (!CHAINED.has(n.kind) || seen.has(n.id)) return w;
+  seen.add(n.id);
+  const b = balanceOf(n.id, nodes, edges, seen);
+  seen.delete(n.id);
+  return b.score === null ? w : w * b.score;
+}
+
 export function balance(id: string, nodes: Nodes, edges: Edges): Balance {
-  const pro: { n: PlanNode; mult: number }[] = [];
-  const con: { n: PlanNode; mult: number }[] = [];
+  return balanceOf(id, nodes, edges, new Set([id]));
+}
+
+function balanceOf(id: string, nodes: Nodes, edges: Edges, seen: Set<string>): Balance {
+  const pro: { n: PlanNode; w: number }[] = [];
+  const con: { n: PlanNode; w: number }[] = [];
+  const add = (list: typeof pro, n: PlanNode, mult: number) => {
+    seen.add(id);
+    list.push({ n, w: effectiveWeight(n, nodes, edges, seen) * mult });
+  };
   for (const e of Object.values(edges)) {
     const mult = STRENGTH[e.strength ?? "normal"].mult;
-    if (e.rel === "supports" && e.to === id && nodes[e.from]) pro.push({ n: nodes[e.from], mult });
+    if (e.rel === "supports" && e.to === id && nodes[e.from]) add(pro, nodes[e.from], mult);
     // Contradiction is mutual: whichever end you're looking from, the other end weighs against.
     if (e.rel === "contradicts") {
-      if (e.to === id && nodes[e.from]) con.push({ n: nodes[e.from], mult });
-      else if (e.from === id && nodes[e.to]) con.push({ n: nodes[e.to], mult });
+      if (e.to === id && nodes[e.from]) add(con, nodes[e.from], mult);
+      else if (e.from === id && nodes[e.to]) add(con, nodes[e.to], mult);
     }
   }
   const f = side(pro);
@@ -62,6 +87,9 @@ export function balance(id: string, nodes: Nodes, edges: Edges): Balance {
     echoes: f.echoes + a.echoes,
   };
 }
+
+/** Too little evidence either way to read anything into the for/against split. */
+export const isThin = (b: Balance) => b.score !== null && (b.forW + b.againstW < 120 || b.pro.length + b.con.length < 2);
 
 /** Kinds that can be weighed (the ones evidence can bear on). */
 export const WEIGHABLE = new Set<Kind>(["claim", "conclusion", "assumption", "question", "goal", "thought", "spark"]);

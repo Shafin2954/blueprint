@@ -146,8 +146,10 @@ function makeNode(
  * the bottom sheet on phones.
  */
 export function visibleArea(w: number, h: number, panelOpen: boolean) {
-  if (w >= 900) return { left: 330, right: panelOpen ? w - 330 : w - 24, top: 110, bottom: h - 24 };
-  return { left: 12, right: w - 12, top: 120, bottom: panelOpen ? h * 0.42 : h - 24 };
+  // Desktop: keep clear of the sidebar, the inspector and the command bar at the bottom.
+  if (w >= 900) return { left: 330, right: panelOpen ? w - 330 : w - 24, top: 110, bottom: h - 110 };
+  // Phones: below the toolbar and folded panel tabs; above the bottom sheet if it's open.
+  return { left: 12, right: w - 12, top: 150, bottom: panelOpen ? h * 0.42 : h - 24 };
 }
 
 /** True while looking at a shared link: everything is view-only. */
@@ -513,7 +515,7 @@ export const usePlan = create<PlanState>()(
         const minY = Math.min(...list.map((n) => n.y));
         const maxX = Math.max(...list.map((n) => n.x + 232));
         const maxY = Math.max(...list.map((n) => n.y + 140));
-        const top = w < 768 ? 130 : 120;
+        const top = w < 768 ? 150 : 120;
         const bottom = w < 768 ? 24 : 90; // desktop: leave room for the command bar
         const aw = Math.max(200, w - padLeft - padRight - 40);
         const ah = Math.max(200, h - top - bottom);

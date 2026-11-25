@@ -5,7 +5,7 @@ import { usePlan, useReadOnly } from "@/lib/store";
 import { nextMoves, progress } from "@/lib/graph";
 import { islands, pairKey, suggestLinks } from "@/lib/insight";
 import { useHoles } from "@/lib/useHoles";
-import { balance, weight } from "@/lib/reason";
+import { balance, isThin, weight } from "@/lib/reason";
 import type { Flag, FixAction } from "@/lib/holes";
 import type { Kind, PlanNode } from "@/lib/types";
 import { Symbol } from "./NodeCard";
@@ -205,7 +205,7 @@ function Questions() {
     <ul className="space-y-3">
       <li className="text-[11px] leading-relaxed text-[var(--ink-faint)]">
         Ranked by the evidence linked to each answer (green for, red against) — not by how sure you said you are.
-        “Thin” means very little evidence either way: one weak reason can show 100% for.
+        With only one reason, or very little weight either way, it says “too little to judge” rather than a percentage.
       </li>
       {qs.map(({ q, answers }) => (
         <li key={q.id}>
@@ -223,11 +223,13 @@ function Questions() {
                     </span>
                   </span>
                   <span className="mt-1 flex items-center gap-2">
-                    <Meter score={b.score} />
+                    <span className={`flex-1 ${isThin(b) ? "opacity-40" : ""}`}><Meter score={b.score} /></span>
                     <span className="bp-mono shrink-0 text-[9px] text-[var(--ink-faint)]" title={`Evidence weight: ${Math.round(b.forW)} for, ${Math.round(b.againstW)} against`}>
                       {b.score === null
                         ? "no evidence"
-                        : `${b.pro.length + b.con.length} reason${b.pro.length + b.con.length === 1 ? "" : "s"} · ${Math.round(b.score * 100)}% for${b.forW + b.againstW < 120 ? " · thin" : ""}`}
+                        : isThin(b)
+                          ? `${b.pro.length + b.con.length} reason${b.pro.length + b.con.length === 1 ? "" : "s"} · too little to judge`
+                          : `${b.pro.length + b.con.length} reasons · ${Math.round(b.score * 100)}% for`}
                     </span>
                   </span>
                 </button>
@@ -358,6 +360,9 @@ export default function Sidebar() {
     ["holes", "Plot holes", flags.length],
     ["picture", "Big picture"],
   ];
+
+  const linking = usePlan((s) => s.linking !== null);
+  if (linking && window.innerWidth < 768) return null; // phones: give the board all the room while choosing a target
 
   return (
     <aside className="bp-panel pointer-events-auto w-[300px] max-w-[calc(100vw-32px)]">

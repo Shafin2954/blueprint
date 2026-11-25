@@ -37,7 +37,13 @@ export function PopMenu({
   useEffect(() => {
     if (!rect) return;
     const close = (e: Event) => {
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      if (e instanceof KeyboardEvent) {
+        if (e.key !== "Escape") return;
+        e.stopPropagation();
+        setRect(null);
+        btn.current?.focus();
+        return;
+      }
       if (e.target instanceof Node && (btn.current?.contains(e.target) || menu.current?.contains(e.target))) return;
       setRect(null);
     };
@@ -111,7 +117,7 @@ export function PopMenu({
               >
                 {it.icon && <span className="bp-accent shrink-0">{it.icon}</span>}
                 <span className="flex-1">{it.label}</span>
-                {it.hint && <span className="bp-mono text-[10px] text-[var(--ink-faint)]">{it.hint}</span>}
+                {it.hint && !phone && <span className="bp-mono text-[10px] text-[var(--ink-faint)]">{it.hint}</span>}
               </button>
             ))}
           </div>,

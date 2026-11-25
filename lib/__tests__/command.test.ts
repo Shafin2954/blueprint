@@ -22,8 +22,9 @@ describe("command bar parser", () => {
     expect(a.confidence).toBe(55);
   });
 
-  it("plain text is a thought", () => {
+  it("plain text is a thought; a plain question is a question", () => {
     expect(add("Dogs need daily walks")).toMatchObject({ kind: "thought", title: "Dogs need daily walks" });
+    expect(add("Should I switch to a standing desk?")).toMatchObject({ kind: "question" });
   });
 
   it("understands short forms and link directions", () => {
@@ -39,6 +40,11 @@ describe("command bar parser", () => {
     expect(s.links).toEqual([{ dir: "in", ref: "T-01", rel: "feeds" }, { dir: "out", ref: "G-01", rel: "feeds" }]);
     expect(s.status).toBe("doing");
     expect(add("/claim Yes, answers: Q-01").links).toEqual([{ dir: "out", ref: "Q-01", rel: "supports" }]);
+  });
+
+  it("a second command typed over a first one wins", () => {
+    expect(add("/goal /step Measure the desk, to: G-01").kind).toBe("step");
+    expect(add("/goal /step Measure the desk, to: G-01").title).toBe("Measure the desk");
   });
 
   it("parses /link", () => {

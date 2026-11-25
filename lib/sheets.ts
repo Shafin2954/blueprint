@@ -293,6 +293,13 @@ export function enterViewer(data: SheetData): boolean {
     open(s.sheetId, data, s.viewing); // already viewing: just swap the content
     return true;
   }
+  // An empty, untitled sheet (e.g. a first visit straight to a link) isn't worth keeping.
+  if (!Object.keys(s.nodes).length) {
+    index = index.filter((m) => m.id !== s.sheetId);
+    writeIndex();
+    open(`view-${newId()}`, data, { returnTo: "" });
+    return true;
+  }
   touchCurrent();
   if (!park()) return false;
   open(`view-${newId()}`, data, { returnTo: s.sheetId });
@@ -312,11 +319,19 @@ export function exitViewer() {
 }
 
 /** Keep the shared sheet: it becomes one of your own sheets (your previous one stays in the list). */
-export function keepSharedCopy() {
+export function keepSharedCopy(): "saved" | "already" {
   const s = usePlan.getState();
-  if (!s.viewing) return;
+  if (!s.viewing) return "saved";
+  // Saved this one before (same name, same number of cards)? Open that instead of a duplicate.
+  const same = findSheetByName(s.project);
+  if (same && same.cards === Object.keys(s.nodes).length && localStorage.getItem(slot(same.id))) {
+    exitViewer();
+    switchSheet(same.id);
+    return "already";
+  }
   usePlan.setState({ viewing: null, sheetId: newId(), project: s.project });
   touchCurrent();
+  return "saved";
 }
 
 /** A sheet of yours with this exact name, if any (most recent first). */

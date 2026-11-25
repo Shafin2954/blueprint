@@ -95,6 +95,25 @@ describe("weighing", () => {
     expect(bal.againstW).toBe(30);
   });
 
+  it("passes support along a chain: a claim whose own evidence leans against it counts for less", () => {
+    const b = board()
+      .card("e1", "evidence", { confidence: 70 })
+      .card("e2", "evidence", { confidence: 85 })
+      .card("c", "claim", { confidence: 80 })
+      .card("d", "conclusion")
+      .link("e1", "c", "supports")
+      .link("e2", "c", "contradicts")
+      .link("c", "d", "supports");
+    // c's own evidence: 70 for, 85 against → score 70/155; it lends d 80 × 0.45 ≈ 36, not 80
+    expect(balance("d", b.nodes, b.edges).forW).toBe(Math.round(80 * (70 / 155)));
+  });
+
+  it("calls one reason too little to judge", async () => {
+    const { isThin } = await import("../reason");
+    const b = board().card("e", "evidence", { confidence: 90 }).card("c", "claim").link("e", "c", "supports");
+    expect(isThin(balance("c", b.nodes, b.edges))).toBe(true);
+  });
+
   it("returns no score when nothing bears on a card", () => {
     const b = board().card("c", "claim");
     expect(balance("c", b.nodes, b.edges).score).toBeNull();
@@ -140,6 +159,11 @@ describe("plot holes", () => {
     const t = titles(b);
     expect(t).not.toContain("Holding both sides");
     expect(t).not.toContain("Inconvenient evidence");
+  });
+
+  it("doesn't call two 50% ('no idea') claims 'holding both sides'", () => {
+    const b = board().card("a", "claim", { confidence: 50 }).card("b", "claim", { confidence: 50 }).link("a", "b", "contradicts");
+    expect(titles(b)).not.toContain("Holding both sides");
   });
 
   it("flags holding both sides of a contradiction", () => {

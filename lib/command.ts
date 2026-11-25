@@ -109,15 +109,19 @@ export function parseCommand(input: string): Parsed {
   if (!text) return { action: null, errors: [] };
   const errors: string[] = [];
 
-  // No slash: a quick thought.
+  // No slash: a quick thought — or a question, if it ends with "?".
   if (!text.startsWith("/")) {
     const { title, fields } = splitFields(text);
-    return finishAdd("thought", title || text, fields, errors);
+    const t = title || text;
+    return finishAdd(t.trim().endsWith("?") ? "question" : "thought", t, fields, errors);
   }
 
   const m = text.match(/^\/(\S*)\s*([\s\S]*)$/)!;
   const cmd = m[1].toLowerCase();
   const rest = m[2];
+  // "/goal /step Measure…": a second command typed over a first — the latest one wins.
+  const again = rest.match(/^\/([a-z]+)\b/i);
+  if (again && (kindFor(again[1]) || /^l(ink)?$/i.test(again[1]))) return parseCommand(rest);
 
   if (cmd === "link" || cmd === "l") {
     const [from, to, how, strength] = rest.split(/\s+/).filter(Boolean);

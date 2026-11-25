@@ -5,7 +5,7 @@ export function stem(word: string): string {
   let w = word.toLowerCase();
   if (w.length <= 3) return w;
   for (const [suf, rep] of [
-    ["ies", "y"], ["ied", "y"], ["ing", ""], ["ed", ""], ["es", ""], ["s", ""], ["ly", ""], ["er", ""], ["ment", ""], ["ness", ""],
+    ["ies", "y"], ["ied", "y"], ["ing", ""], ["ed", ""], ["es", ""], ["s", ""], ["ly", ""], ["ment", ""], ["ness", ""],
   ] as const) {
     if (w.endsWith(suf) && w.length - suf.length >= 3) {
       w = w.slice(0, -suf.length) + rep;

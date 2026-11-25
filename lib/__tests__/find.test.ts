@@ -15,5 +15,7 @@ describe("find", () => {
     expect(findCards(b.nodes, "salary").map((n) => n.id)).toEqual(["b"]);
     expect(findCards(b.nodes, "learn").map((n) => n.id)).toEqual(["a"]);
     expect(findCards(b.nodes, "gardening")).toEqual([]);
+    const o = board().card("x", "step", { title: "Order a sit-stand desk" });
+    for (const q of ["order", "orders", "ordered", "ordering"]) expect(findCards(o.nodes, q).map((n) => n.id), q).toEqual(["x"]);
   });
 });

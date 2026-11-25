@@ -13,14 +13,37 @@ const fitAll = () => {
 };
 
 /** For the tour: reuse an untouched copy of the example if there is one, rather than piling up copies. */
+/** The sheet you were on before the tour, to come back to when it ends. */
+let beforeTour: string | null = null;
+
+/**
+ * For the tour: always a fresh copy of the example (so the tour's words match what's on
+ * screen, even if you edited it last time), kept in one "(tour)" sheet that gets reused.
+ */
 export function openForTour(st: Starter) {
-  const fresh = st.build();
-  const count = Object.keys(fresh.nodes).length;
+  const name = `${st.title} (tour)`;
+  const fresh = { ...st.build(), project: name };
   const s = usePlan.getState();
-  if (s.project === st.title && Object.keys(s.nodes).length === count) return fitAll();
-  const existing = findSheetByName(st.title);
-  if (existing && existing.cards === count && switchSheet(existing.id)) return fitAll();
-  loadStarter(st);
+  if (s.project !== name) beforeTour = Object.keys(s.nodes).length ? s.sheetId : null;
+  if (s.project === name) {
+    s.loadSheet(fresh);
+  } else {
+    const existing = findSheetByName(name);
+    if (existing && switchSheet(existing.id)) usePlan.getState().loadSheet(fresh);
+    else if (Object.keys(s.nodes).length) newSheet(fresh);
+    else s.loadSheet(fresh);
+  }
+  fitAll();
+}
+
+/** After the tour: back to the sheet you were on. */
+function leaveTour() {
+  const back = beforeTour;
+  beforeTour = null;
+  if (back && back !== usePlan.getState().sheetId && switchSheet(back)) {
+    toast("Back to your sheet — the example stays under Sheets if you want it again");
+  }
+  fitAll();
 }
 
 /** Open an example or template. Never overwrites work: a non-empty sheet stays, and this opens as a new one. */
@@ -127,7 +150,12 @@ export function Tour({ steps, onEnd }: { steps: TourStep[]; onEnd: () => void })
     // On phones the editor would cover the tour, so the tour never opens it there.
     const openEditor = !!step.select && window.innerWidth >= 768;
     const n = step.focus ? Object.values(s.nodes).find((x) => x.ref === step.focus) : undefined;
-    if (n) s.focus(n.id, window.innerWidth, window.innerHeight, openEditor);
+    if (n) {
+      s.focus(n.id, window.innerWidth, window.innerHeight, openEditor);
+      // Keep the card clear of the tour box (top on desktop, bottom on phones).
+      const v = usePlan.getState().view;
+      usePlan.getState().setView({ ...v, y: v.y + (window.innerWidth >= 768 ? 110 : -110) });
+    }
     if (!openEditor) s.select(null);
     usePlan.setState({ spotlight: n?.id ?? null });
     if (step.tab) window.dispatchEvent(new CustomEvent("blueprint-tab", { detail: step.tab }));
@@ -135,7 +163,7 @@ export function Tour({ steps, onEnd }: { steps: TourStep[]; onEnd: () => void })
 
   const end = () => {
     usePlan.setState({ spotlight: null });
-    fitAll();
+    leaveTour();
     onEnd();
   };
 

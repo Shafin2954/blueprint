@@ -198,6 +198,14 @@ function ShareLink() {
             >
               {copied === "ok" ? "Copied ✓" : "Copy link"}
             </button>
+            {typeof navigator !== "undefined" && "share" in navigator && (
+              <button
+                onClick={() => navigator.share({ title: "Blueprint sheet", url }).catch(() => {})}
+                className="bp-btn"
+              >
+                Share…
+              </button>
+            )}
           </div>
           {copied === "fail" && (
             <p role="alert" className="text-[11px] text-[var(--warn)]">
@@ -379,7 +387,7 @@ export function FramePanel({ id }: { id: string }) {
                 className="flex w-full items-center gap-1.5 text-left text-[12px] text-[var(--ink-dim)] hover:text-[var(--ink)]"
               >
                 <span className={`bp-${n.kind} bp-accent`}><Symbol kind={n.kind} size={11} /></span>
-                <span className="bp-mono text-[10px]">{n.ref}</span>
+                <span className="bp-mono shrink-0 whitespace-nowrap text-[10px]">{n.ref}</span>
                 <span className="truncate">{n.title}</span>
               </button>
             </li>

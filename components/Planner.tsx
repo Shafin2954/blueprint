@@ -5,6 +5,7 @@ import { usePlan, useReadOnly } from "@/lib/store";
 import { CORE_KINDS, KIND_META, KINDS, type Kind } from "@/lib/types";
 import { checkpoint, deleteWithUndo, redo, startHistory, toast, toastUndo, undo, useHistory } from "@/lib/history";
 import { tidy } from "@/lib/layout";
+import { installGhostGuard } from "@/lib/ghost";
 import { membersOf } from "@/lib/frames";
 import { sheetTitle } from "@/lib/naming";
 import { NEXT_KIND, describe as describeCard, nearestInDirection, nearestTo, type Dir } from "@/lib/keyboard";
@@ -157,7 +158,7 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
     <div className="bp-panel bp-noscrollbar bp-toolbar pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto whitespace-nowrap p-1.5 max-md:flex-nowrap md:flex-wrap [&>*]:shrink-0">
       <button onClick={undo} disabled={!canUndo} className="bp-tool px-2 disabled:opacity-30" title="Undo (Ctrl/⌘+Z)" aria-label="Undo">↶</button>
       <button onClick={redo} disabled={!canRedo} className="bp-tool px-2 disabled:opacity-30" title="Redo (Ctrl/⌘+Shift+Z)" aria-label="Redo">↷</button>
-      <span className="mx-1 h-5 w-px bg-[var(--line)]" />
+      <span className="mx-1 h-5 w-px bg-[var(--line)] max-md:hidden" />
       {/* Phones: one labelled "+ Add" menu instead of a row of bare icons. */}
       <span className="md:hidden">
         <PopMenu
@@ -198,7 +199,7 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
           }))}
         />
       </span>
-      <span className="mx-1 h-5 w-px bg-[var(--line)]" />
+      <span className="mx-1 h-5 w-px bg-[var(--line)] max-md:hidden" />
       <button onClick={tidyNow} className="bp-btn max-md:!hidden" title="Lay the sheet out left to right by how cards connect (undoable)">Tidy</button>
       <button onClick={() => open("find")} className="bp-btn" title="Find a card (Ctrl/⌘+K)" aria-label="Find a card">Find</button>
       <button onClick={() => open("start")} className="bp-btn max-md:!hidden" title="Examples, a guided tour, and templates">Start</button>
@@ -291,9 +292,9 @@ function ViewerBar() {
       <span className="text-[13px] text-[var(--ink)]">{project}</span>
       <button
         onClick={() => {
-          keepSharedCopy();
+          const r = keepSharedCopy();
           clearHash();
-          toast(`Saved “${project}” to your sheets — you can edit it now`);
+          toast(r === "already" ? `You'd already saved “${project}” — opened your copy` : `Saved “${project}” to your sheets — you can edit it now`);
         }}
         className="bp-btn bp-btn-primary"
       >
@@ -317,7 +318,11 @@ function frameCards() {
   const st = usePlan.getState();
   const ids = st.gathered.length ? st.gathered : st.selection?.type === "node" ? [st.selection.id] : [];
   if (!ids.length) {
-    toast("Select a card, or gather several (shift-click or Gather), then Frame them.");
+    toast(
+      window.innerWidth < 768
+        ? "Select a card (or press Gather on several), then Frame them."
+        : "Select a card, or gather several (shift-click or Gather), then Frame them.",
+    );
     return;
   }
   const [x, y] = centerWorld();
@@ -394,7 +399,7 @@ function Toast() {
   }, []);
   if (!msg) return null;
   return (
-    <div key={msg.n} role="status" className="bp-panel pointer-events-auto flex items-center gap-3 px-3 py-2 text-[12px] text-[var(--ink)]">
+    <div key={msg.n} role="status" className="bp-panel pointer-events-none flex items-center gap-3 px-3 py-2 text-[12px] text-[var(--ink)] [&_button]:pointer-events-auto">
       {msg.text}
       {msg.undo && <button
         onClick={() => {
@@ -429,6 +434,14 @@ function GatherBar() {
 export default function Planner() {
   const [ready, setReady] = useState(false);
   const [full, setFull] = useState(false);
+  // Phones get the link/undo bars at the bottom; tracked so each is rendered once.
+  const [phone, setPhone] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const on = () => setPhone(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
   const [tour, setTour] = useState<Starter | null>(null);
   // `n` remounts the overlay on each open so the generator reseeds from the current selection.
   const [overlay, setOverlay] = useState<{ kind: Overlay; n: number; q?: string }>({ kind: null, n: 0 });
@@ -474,6 +487,7 @@ export default function Planner() {
 
   useEffect(() => {
     Promise.resolve(usePlan.persist.rehydrate()).then(() => {
+      installGhostGuard();
       startHistory();
       startSheets();
       maintainImages().catch(() => {});
@@ -529,7 +543,9 @@ export default function Planner() {
       }
       // Esc in the inspector's fields: done typing, back to moving around the sheet.
       if (inField && e.key === "Escape" && t.closest("aside")) {
+        // Done editing: back to the sheet, so arrows and Tab carry on from the card.
         (t as HTMLElement).blur();
+        document.querySelector<HTMLElement>(".bp-paper")?.focus();
         return;
       }
       // Esc in a panel's own field (Help search, Find…): close the panel.
@@ -549,6 +565,13 @@ export default function Planner() {
       if (e.key.startsWith("Arrow") && inPanel) return;
       // Single-letter shortcuts only when focus is on the sheet itself, not on a button or panel —
       // otherwise typing (or a stray key after closing a panel) fires them.
+      // Nothing focused (e.g. right after a reload) and you start typing words: that's text,
+      // not shortcuts — send it to the command bar. Shortcuts work once the sheet has focus.
+      if (t === document.body && window.innerWidth >= 768 && !s.viewing && /^[\p{L}\p{N}]$/u.test(e.key)) {
+        // Focus the bar now, during this keydown: the browser then types this same key into it.
+        window.dispatchEvent(new CustomEvent("blueprint-command-focus"));
+        return;
+      }
       const onSheet = !onControl && !inPanel;
       const toggle = (kind: Overlay) => setOverlay((o) => ({ kind: o.kind === kind ? null : kind, n: o.n + 1 }));
       const selNode = s.selection?.type === "node" ? s.nodes[s.selection.id] : undefined;
@@ -674,7 +697,11 @@ export default function Planner() {
           <Toolbar open={open} />
           <div className="ml-auto"><Pipeline /></div>
         </header>
-        <div className="flex flex-col items-center gap-2 empty:hidden"><ViewerBar /><LinkBar /><Toast /></div>
+        <div className="flex flex-col items-center gap-2 empty:hidden">
+          <ViewerBar />
+          {!phone && <LinkBar />}
+          {!phone && <Toast />}
+        </div>
         <div className="flex min-h-0 flex-1 items-start gap-3">
           <Sidebar />
           {/* On phones, panels become full-width sheets instead of squeezing between columns. */}
@@ -713,7 +740,12 @@ export default function Planner() {
             <button onClick={() => setFull(false)} className="bp-tool">OK</button>
           </div>
         )}
-        <div className="flex flex-col items-center gap-2"><GatherBar /></div>
+        {/* Phones: link and undo bars at the bottom, where they don't cover cards near the top. */}
+        <div className="flex flex-col items-center gap-2">
+          {phone && <LinkBar />}
+          {phone && <Toast />}
+          <GatherBar />
+        </div>
         <footer className="flex items-end justify-between gap-3">
           <div className="hidden min-w-0 flex-1 justify-center md:flex">
             <CommandBar />
