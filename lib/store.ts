@@ -154,6 +154,17 @@ export function visibleArea(w: number, h: number, panelOpen: boolean) {
   return { left: 12, right: w - 12, top: 150, bottom: panelOpen ? h * 0.42 : h - 24 };
 }
 
+/** Set while applying another tab's saved changes (see sheets.ts), so they aren't written back. */
+let applyingRemote = false;
+export function withoutSaving(fn: () => void) {
+  applyingRemote = true;
+  try {
+    fn();
+  } finally {
+    applyingRemote = false;
+  }
+}
+
 /** True while looking at a shared link: everything is view-only. */
 export const useReadOnly = () => usePlan((s) => s.viewing !== null);
 
@@ -571,6 +582,7 @@ export const usePlan = create<PlanState>()(
       storage: createJSONStorage(() => ({
         getItem: (k) => localStorage.getItem(k),
         setItem: (k, v) => {
+          if (applyingRemote) return; // it came from storage: writing it back would echo between tabs
           try {
             localStorage.setItem(k, v);
           } catch {

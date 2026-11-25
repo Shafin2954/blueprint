@@ -1,5 +1,6 @@
 "use client";
 
+import { installApp, isInstalled, keepData, startInstall } from "@/lib/install";
 import { NODE_W } from "@/lib/types";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePlan, useReadOnly } from "@/lib/store";
@@ -240,6 +241,7 @@ function Toolbar({ open }: { open: (o: Overlay) => void }) {
           { label: "Fit to screen", hint: "", run: () => fitToScreen() },
           { label: "Export file", hint: "", run: exportPlan },
           { label: "Import file", hint: "", run: () => file.current?.click() },
+          ...(isInstalled() ? [] : [{ label: "Install app (works offline)", hint: "", run: () => void installApp() }]),
         ]}
       />
       <input
@@ -482,8 +484,10 @@ export default function Planner() {
     () =>
       usePlan.subscribe((st, prev) => {
         // The first card on an empty sheet: the Start panel has done its job.
-        if (Object.keys(prev.nodes).length === 0 && Object.keys(st.nodes).length > 0 && st.sheetId === prev.sheetId)
+        if (Object.keys(prev.nodes).length === 0 && Object.keys(st.nodes).length > 0 && st.sheetId === prev.sheetId) {
           setOverlay((o) => (o.kind === "start" ? { ...o, kind: null } : o));
+          keepData(); // there's work worth keeping now
+        }
         if (window.innerWidth >= 768 || !st.selection || st.selection === prev.selection) return;
         setOverlay((o) => (o.kind ? { ...o, kind: null } : o));
         window.dispatchEvent(new CustomEvent("blueprint-sidebar-fold"));
@@ -523,6 +527,9 @@ export default function Planner() {
   useEffect(() => {
     Promise.resolve(usePlan.persist.rehydrate()).then(() => {
       installGhostGuard();
+      startInstall();
+      // Someone with work on their sheets: ask the browser not to evict it.
+      if (Object.keys(usePlan.getState().nodes).length) keepData();
       startHistory();
       startSheets();
       maintainImages().catch(() => {});

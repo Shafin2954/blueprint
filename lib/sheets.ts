@@ -8,7 +8,7 @@
  * unparks the target, so no sheet is ever stored twice (images are big).
  */
 import { useSyncExternalStore } from "react";
-import { usePlan } from "./store";
+import { usePlan, withoutSaving } from "./store";
 import { historyImageRefs, loadWithoutHistory } from "./history";
 import { sheetTitle } from "./naming";
 import { collectGarbage, internImages, listStoredRefs } from "./images";
@@ -32,6 +32,7 @@ export interface SheetMeta {
 }
 
 const INDEX = "blueprint-sheets-v1";
+const PLAN_KEY = "blueprint-plan-v1";
 const slot = (id: string) => `blueprint-sheet:${id}`;
 const newId = () => Math.random().toString(36).slice(2, 10);
 const BLANK_VIEW: View = { x: 80, y: 90, k: 0.85 };
@@ -90,6 +91,40 @@ export function startSheets() {
   const open = usePlan.getState().sheetId;
   index = index.filter((m) => m.id === open || localStorage.getItem(slot(m.id)) !== null);
   touchCurrent();
+
+  // Another tab of this app changed things: take its version, so neither tab overwrites the other.
+  window.addEventListener("storage", (e) => {
+    if (e.key === INDEX) {
+      index = readIndex();
+      emit();
+    } else if (e.key === PLAN_KEY && e.newValue) {
+      try {
+        const d = (JSON.parse(e.newValue) as { state: Partial<SheetData> & { sheetId: string; viewing: { returnTo: string } | null } }).state;
+        const s = usePlan.getState();
+        const sameSheet = d.sheetId === s.sheetId;
+        withoutSaving(() =>
+          loadWithoutHistory(() =>
+            usePlan.setState({
+              project: d.project ?? s.project,
+              nodes: d.nodes ?? {},
+              edges: d.edges ?? {},
+              frames: d.frames ?? {},
+              counters: { ...s.counters, ...d.counters },
+              dismissed: d.dismissed ?? [],
+              sheetId: d.sheetId,
+              viewing: d.viewing ?? null,
+              // Keep this tab's own scroll and selection on the same sheet.
+              ...(sameSheet
+                ? { selection: s.selection && (d.nodes?.[s.selection.id] || d.edges?.[s.selection.id] || d.frames?.[s.selection.id]) ? s.selection : null }
+                : { view: d.view ?? BLANK_VIEW, selection: null, gathered: [], linking: null }),
+            }),
+          ),
+        );
+      } catch {
+        /* unreadable: ignore */
+      }
+    }
+  });
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   usePlan.subscribe((s, prev) => {

@@ -22,8 +22,17 @@ self.addEventListener("message", (event) => {
       return false;
     }
   });
+  // Cache what this page uses, then drop build files from older versions it no longer needs
+  // (they're hashed, so each deploy would otherwise leave its whole build behind).
+  const keep = new Set(urls.map((u) => new URL(u).pathname));
   event.waitUntil(
-    caches.open(CACHE).then((c) => Promise.all(urls.map((u) => c.add(u).catch(() => {})))),
+    caches.open(CACHE).then(async (c) => {
+      await Promise.all(urls.map((u) => c.add(u).catch(() => {})));
+      for (const req of await c.keys()) {
+        const path = new URL(req.url).pathname;
+        if (path.includes("/_next/static/chunks/") && !keep.has(path)) await c.delete(req);
+      }
+    }),
   );
 });
 
