@@ -95,6 +95,33 @@ export function Symbol({ kind, size = 14 }: { kind: Kind; size?: number }) {
           <path d="M8 6v4M8 11.6v.8" />
         </svg>
       );
+    case "problem":
+      return (
+        <svg {...common}>
+          <path d="M5 1.8h6L14.2 5v6L11 14.2H5L1.8 11V5z" />
+          <path d="M8 4.8v4M8 10.8v.8" />
+        </svg>
+      );
+    case "cause":
+      return (
+        <svg {...common}>
+          <circle cx="3.5" cy="8" r="1.8" />
+          <path d="M5.5 8h7M10 5.2L13 8l-3 2.8" />
+        </svg>
+      );
+    case "root":
+      return (
+        <svg {...common}>
+          <path d="M8 1.5v6.5M8 8c-1 2-3 2.5-5 3.5M8 8c1 2 3 2.5 5 3.5M8 8v6.5" />
+          <circle cx="8" cy="8" r="1.2" fill="currentColor" />
+        </svg>
+      );
+    case "fix":
+      return (
+        <svg {...common}>
+          <path d="M10.5 2.2a3.2 3.2 0 0 0-3.9 4.2L2 11l3 3 4.6-4.6a3.2 3.2 0 0 0 4.2-3.9l-2 2-2.3-.4-.4-2.3z" />
+        </svg>
+      );
     case "text":
       return (
         <svg {...common}>

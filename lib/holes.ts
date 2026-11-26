@@ -20,7 +20,9 @@ export type FixAction =
   | { type: "add-why"; id: string }
   | { type: "contradiction-to-question"; edgeId: string }
   | { type: "split"; id: string }
-  | { type: "promote"; id: string };
+  | { type: "promote"; id: string }
+  | { type: "add-into"; id: string; kind: "cause" | "fix" | "step" | "evidence"; rel: "feeds" | "supports" }
+  | { type: "make-root"; id: string };
 
 export interface Flag {
   /** Stable key so a dismissal survives edits elsewhere on the board. */
@@ -162,7 +164,103 @@ export function findHoles(allNodes: Nodes, edges: Edges): Flag[] {
     });
   }
 
-  const loose = list.filter((n) => n.kind !== "spark" && n.kind !== "thought" && ins(n.id).length === 0 && outs(n.id).length === 0);
+  // ── Problem solving: from a symptom down to a root cause, and a fix that removes it. ──
+  const causalIn = (id: string) =>
+    ins(id).filter((e) => (e.rel ?? "feeds") === "feeds" && (nodes[e.from]?.kind === "cause" || nodes[e.from]?.kind === "root")).map((e) => nodes[e.from]);
+  const fixesIn = (id: string) => ins(id).filter((e) => nodes[e.from]?.kind === "fix").map((e) => nodes[e.from]);
+  for (const p of list) {
+    if (p.kind !== "problem") continue;
+    const direct = causalIn(p.id);
+    if (!direct.length) {
+      flags.push({
+        key: `unexplained:${p.id}`,
+        severity: "gap",
+        title: "Unexplained problem",
+        detail: `Nothing on the board says why ${name(p)} happens. Ask “why?” and add a cause — then ask why again.`,
+        nodeIds: [p.id],
+        fix: { label: "Ask why", action: { type: "add-into", id: p.id, kind: "cause", rel: "feeds" } },
+      });
+      continue;
+    }
+    // Walk the chain of whys: the deepest causes are where you stopped asking.
+    const depth = new Map<string, number>();
+    const walk = (id: string, d: number, seen: Set<string>) => {
+      for (const c of causalIn(id)) {
+        if (seen.has(c.id)) continue;
+        depth.set(c.id, Math.max(depth.get(c.id) ?? 0, d));
+        walk(c.id, d + 1, new Set([...seen, c.id]));
+      }
+    };
+    walk(p.id, 1, new Set([p.id]));
+    const chain = [...depth.keys()].map((id) => nodes[id]);
+    if (!chain.some((c) => c.kind === "root")) {
+      const deepest = chain.filter((c) => !causalIn(c.id).length).sort((a, b) => depth.get(b.id)! - depth.get(a.id)!)[0];
+      const d = depth.get(deepest.id)!;
+      flags.push({
+        key: `noroot:${p.id}:${deepest.id}`,
+        severity: "note",
+        title: "No root cause yet",
+        detail:
+          d < 2
+            ? `${name(deepest)} is the first answer to “why does ${p.ref} happen?”. First answers are usually symptoms too — ask why ${deepest.ref} happens.`
+            : `The chain under ${name(p)} stops at ${name(deepest)}, ${d} whys deep. If removing it would stop the problem, make it the root cause; if not, ask why again.`,
+        nodeIds: [p.id, deepest.id],
+        fix:
+          d < 2
+            ? { label: "Ask why again", action: { type: "add-into", id: deepest.id, kind: "cause", rel: "feeds" } }
+            : { label: "Make it the root cause", action: { type: "make-root", id: deepest.id } },
+      });
+    }
+    const symptomFixes = fixesIn(p.id);
+    if (symptomFixes.length) {
+      flags.push({
+        key: `symptom:${p.id}:${symptomFixes.map((f) => f.id).join(",")}`,
+        severity: "note",
+        title: "Treating the symptom",
+        detail: `${symptomFixes.map((f) => f.ref).join(", ")} ${symptomFixes.length > 1 ? "go" : "goes"} straight at ${name(p)}, not at a cause. That can be the right stopgap — but the problem will come back unless something removes its cause.`,
+        nodeIds: [p.id, ...symptomFixes.map((f) => f.id)],
+      });
+    }
+  }
+  for (const r of list) {
+    if (r.kind !== "root") continue;
+    if (!fixesIn(r.id).length) {
+      flags.push({
+        key: `nofix:${r.id}`,
+        severity: "hole",
+        title: "Root cause, no fix",
+        detail: `${name(r)} is the cause worth removing, but nothing on the board removes it. What countermeasure would stop it happening?`,
+        nodeIds: [r.id],
+        fix: { label: "Add a fix", action: { type: "add-into", id: r.id, kind: "fix", rel: "feeds" } },
+      });
+    }
+    const proof = ins(r.id).filter((e) => e.rel === "supports" && nodes[e.from]?.kind === "evidence");
+    if (!proof.length) {
+      flags.push({
+        key: `hunch:${r.id}`,
+        severity: "gap",
+        title: "Root cause on a hunch",
+        detail: `Nothing shows that ${name(r)} really causes this. Fixing the wrong cause costs the fix and leaves the problem: what would you expect to see if it were true?`,
+        nodeIds: [r.id],
+        fix: { label: "Add evidence", action: { type: "add-into", id: r.id, kind: "evidence", rel: "supports" } },
+      });
+    }
+  }
+  for (const f of list) {
+    if (f.kind !== "fix" || !outs(f.id).length) continue;
+    if (!ins(f.id).some((e) => nodes[e.from]?.kind === "step")) {
+      flags.push({
+        key: `idlefix:${f.id}`,
+        severity: "gap",
+        title: "A fix nobody's doing",
+        detail: `${name(f)} has no step putting it in place. What's the first thing to do, and when?`,
+        nodeIds: [f.id],
+        fix: { label: "Add a step", action: { type: "add-into", id: f.id, kind: "step", rel: "feeds" } },
+      });
+    }
+  }
+
+  const loose = list.filter((n) => n.kind !== "spark" && n.kind !== "thought" && n.kind !== "problem" && ins(n.id).length === 0 && outs(n.id).length === 0);
   if (loose.length) {
     flags.push({
       key: `floating:${loose.map((n) => n.id).sort().join(",")}`,

@@ -81,7 +81,7 @@ export function boardToMarkdown(project: string, nodes: Nodes, edges: Edges, wit
       const a = nodes[e.from];
       const b = nodes[e.to];
       const how = e.rel && e.rel !== "feeds" ? STRENGTH[e.strength ?? "normal"].adverb : "";
-      out.push(`- ${a.ref} **${how ? `${how} ` : ""}${relVerb(e.rel, b.kind)}** ${b.ref}  _(${a.title} → ${b.title})_`);
+      out.push(`- ${a.ref} **${how ? `${how} ` : ""}${relVerb(e.rel, b.kind, a.kind)}** ${b.ref}  _(${a.title} → ${b.title})_`);
     }
     out.push("");
   }

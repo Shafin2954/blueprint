@@ -132,7 +132,7 @@ export default function Inspector({ id, onGenerate }: { id: string; onGenerate: 
                   title="Change what this link means"
                   className={`bp-mono shrink-0 self-stretch rounded-sm border border-[var(--line)] px-1.5 text-[9px] uppercase hover:border-[var(--ink-dim)] ${e.rel === "contradicts" ? "text-[var(--warn)]" : e.rel === "supports" ? "text-[var(--sup)]" : "text-[var(--ink-faint)]"}`}
                 >
-                  {relVerb(e.rel, nodes[e.to]?.kind) === "answers" ? "Answers" : REL_META[e.rel ?? "feeds"].label} ▾
+                  {(() => { const v = relVerb(e.rel, nodes[e.to]?.kind, nodes[e.from]?.kind); return v === "feeds into" ? REL_META[e.rel ?? "feeds"].label : v[0].toUpperCase() + v.slice(1); })()} ▾
                 </button>
                 {!readOnly && <button onClick={() => deleteWithUndo({ type: "edge", id: e.id })} title="Unlink" aria-label={`Unlink ${n.ref}`} className="shrink-0 self-stretch px-1 text-[var(--ink-faint)] opacity-0 hover:text-[var(--warn)] group-hover:opacity-100 focus:opacity-100 [@media(pointer:coarse)]:min-w-[40px] [@media(pointer:coarse)]:opacity-100">✕</button>}
               </li>

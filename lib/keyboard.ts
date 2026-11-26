@@ -55,6 +55,10 @@ export const NEXT_KIND: Partial<Record<Kind, Kind>> = {
   claim: "conclusion",
   assumption: "claim",
   conclusion: "conclusion",
+  problem: "cause",
+  cause: "cause",
+  root: "fix",
+  fix: "step",
 };
 
 export function describe(n: PlanNode, kindLabel: string, sure?: number): string {

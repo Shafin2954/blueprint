@@ -309,7 +309,7 @@ export function EdgePanel({ id }: { id: string }) {
       </div>
       <p className="mt-1 text-[13px] leading-snug text-[var(--ink)]">
         <span className="bp-mono text-[11px] text-[var(--ink-dim)]">{a?.ref}</span> {a?.title}
-        <span className="block py-1 text-[11px] text-[var(--spark)]">{relVerb(rel, b?.kind)} ↓</span>
+        <span className="block py-1 text-[11px] text-[var(--spark)]">{relVerb(rel, b?.kind, a?.kind)} ↓</span>
         <span className="bp-mono text-[11px] text-[var(--ink-dim)]">{b?.ref}</span> {b?.title}
       </p>
       <div className="mt-3 grid grid-cols-3 gap-1">
@@ -321,7 +321,10 @@ export function EdgePanel({ id }: { id: string }) {
               rel === r ? "bp-rel-active" : "border-[var(--line)] text-[var(--ink-faint)]"
             }`}
           >
-            {r === "supports" && b?.kind === "question" ? "Answers" : REL_META[r].label}
+            {(() => {
+              const v = relVerb(r, b?.kind, a?.kind);
+              return v === "answers" || v === "causes" || v === "fixes" ? v[0].toUpperCase() + v.slice(1) : REL_META[r].label;
+            })()}
           </button>
         ))}
       </div>

@@ -186,6 +186,37 @@ export const STARTERS: Starter[] = [
       ),
   },
 
+  {
+    id: "late",
+    type: "example",
+    title: "Why am I always late?",
+    blurb: "Root-cause a problem: ask why until it's worth fixing, check it, then fix that.",
+    icon: "problem",
+    build: () =>
+      sheet(
+        "Why am I always late?",
+        {
+          p: { kind: "problem", x: 1200, y: 200, title: "Late for work 3 days a week" },
+          c1: { kind: "cause", x: 900, y: 120, title: "I leave home 15 minutes late", sure: 85 },
+          c2: { kind: "cause", x: 900, y: 330, title: "The bus is unreliable", sure: 30, body: "Only late twice this month — not the main thing." },
+          c3: { kind: "cause", x: 600, y: 120, title: "Mornings run slow: I'm groggy", sure: 70 },
+          r: { kind: "root", x: 300, y: 120, title: "Scrolling in bed until after 1am", sure: 75 },
+          e: { kind: "evidence", x: 300, y: 330, title: "Screen time: 70 min after midnight, most nights", sure: 90, source: "Phone stats" },
+          f: { kind: "fix", x: 0, y: 40, title: "Phone charges outside the bedroom" },
+          t: { kind: "step", x: -300, y: 40, title: "Buy a charger for the hallway", body: "Tonight, on the way home." },
+        },
+        [
+          ["c1", "p"],
+          ["c2", "p"],
+          ["c3", "c1"],
+          ["r", "c3"],
+          ["e", "r", "supports"],
+          ["f", "r"],
+          ["t", "f"],
+        ],
+      ),
+  },
+
   // ── Templates ──
   {
     id: "t-decision",
@@ -211,6 +242,34 @@ export const STARTERS: Starter[] = [
           ["e3", "b", "supports"],
           ["a", "q", "supports"],
           ["b", "q", "supports"],
+        ],
+      ),
+  },
+  {
+    id: "t-root",
+    type: "template",
+    title: "Find the root cause",
+    blurb: "A problem, a chain of whys down to the root, proof, and the fix.",
+    icon: "root",
+    build: () =>
+      sheet(
+        "My problem",
+        {
+          p: { kind: "problem", x: 1200, y: 160, title: "[What's going wrong?]" },
+          c1: { kind: "cause", x: 900, y: 160, title: "[Why does it happen?]" },
+          c2: { kind: "cause", x: 600, y: 160, title: "[And why does that happen?]" },
+          r: { kind: "root", x: 300, y: 160, title: "[The cause worth fixing]" },
+          e: { kind: "evidence", x: 300, y: 380, title: "[What shows it's really the cause]" },
+          f: { kind: "fix", x: 0, y: 160, title: "[What would stop it]" },
+          t: { kind: "step", x: -300, y: 160, title: "[First step to put the fix in place]" },
+        },
+        [
+          ["c1", "p"],
+          ["c2", "c1"],
+          ["r", "c2"],
+          ["e", "r", "supports"],
+          ["f", "r"],
+          ["t", "f"],
         ],
       ),
   },

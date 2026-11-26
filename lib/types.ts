@@ -11,6 +11,10 @@ export type Kind =
   | "step"
   | "snippet"
   | "risk"
+  | "problem"
+  | "cause"
+  | "root"
+  | "fix"
   | "text";
 export type Status = "todo" | "doing" | "done";
 
@@ -70,8 +74,15 @@ export const STRENGTH: Record<Strength, { mult: number; label: string; adverb: s
 };
 
 /** "supports" into a question reads as "answers": that's what the link means there. */
-export function relVerb(rel: Rel | undefined, toKind?: Kind): string {
+/** Kinds in a cause-and-effect chain. */
+export const CAUSAL = new Set<Kind>(["problem", "cause", "root"]);
+
+export function relVerb(rel: Rel | undefined, toKind?: Kind, fromKind?: Kind): string {
   if ((rel ?? "feeds") === "supports" && toKind === "question") return "answers";
+  if ((rel ?? "feeds") === "feeds" && toKind && CAUSAL.has(toKind)) {
+    if (fromKind === "fix") return "fixes";
+    if (fromKind === "cause" || fromKind === "root") return "causes";
+  }
   return REL_META[rel ?? "feeds"].verb;
 }
 
@@ -140,6 +151,10 @@ export const KIND_META: Record<
     hint: "Code, copy, a link, a quote. Raw material.",
   },
   risk: { label: "Risk", prefix: "R", hint: "What could stop this, and the counter-move." },
+  problem: { label: "Problem", prefix: "P", hint: "Something going wrong: the symptom you can see. Ask why it happens." },
+  cause: { label: "Cause", prefix: "K", hint: "Why something happens. Link it into the problem (or the cause) it causes, then ask why again." },
+  root: { label: "Root cause", prefix: "RC", hint: "The deepest cause worth fixing: remove it and the problem stops. Link a fix to it." },
+  fix: { label: "Fix", prefix: "F", hint: "A countermeasure. Link it to the root cause it removes, and a step that puts it in place." },
   text: { label: "Text", prefix: "X", hint: "Decoration: a heading or label on the paper. Bold, resizable from its corner; not part of the reasoning." },
 };
 
@@ -148,6 +163,7 @@ export const KIND_GROUPS: Kind[][] = [
   ["thought", "spark", "question", "assumption"],
   ["evidence", "claim", "conclusion"],
   ["goal", "milestone", "step", "risk", "snippet"],
+  ["problem", "cause", "root", "fix"],
   ["text"],
 ];
 
@@ -157,13 +173,15 @@ export const KINDS: Kind[] = KIND_GROUPS.flat();
 export const CORE_KINDS = new Set<Kind>(["thought", "question", "evidence", "claim", "conclusion", "step"]);
 
 /** Kinds that carry a "how sure am I" value. */
-export const BELIEF_KINDS = new Set<Kind>(["evidence", "claim", "conclusion", "assumption"]);
+export const BELIEF_KINDS = new Set<Kind>(["evidence", "claim", "conclusion", "assumption", "cause", "root"]);
 
 export const DEFAULT_CONFIDENCE: Partial<Record<Kind, number>> = {
   evidence: 70,
   claim: 50,
   conclusion: 50,
   assumption: 60,
+  cause: 50,
+  root: 60,
 };
 
 export const NODE_W = 232;
@@ -177,6 +195,8 @@ export const ANCHOR_Y = 22;
 export const STAGE: Record<Kind, number> = {
   thought: 0, spark: 0, evidence: 1, assumption: 2, snippet: 2, claim: 3, risk: 3, conclusion: 4,
   step: 4, question: 5, milestone: 5, goal: 6, text: 0,
+  // Problem solving reads fix → root cause → cause → problem.
+  fix: 1, root: 2, cause: 3, problem: 5,
 };
 
 /** Text boxes are decoration: no links, no checks, not moved by Tidy. */

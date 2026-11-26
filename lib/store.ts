@@ -119,6 +119,10 @@ const ZERO: Record<Kind, number> = {
   step: 0,
   snippet: 0,
   risk: 0,
+  problem: 0,
+  cause: 0,
+  root: 0,
+  fix: 0,
   text: 0,
 };
 

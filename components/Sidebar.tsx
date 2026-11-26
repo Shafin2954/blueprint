@@ -37,6 +37,18 @@ export function runFix(a: FixAction) {
     case "contradiction-to-question": return s.contradictionToQuestion(a.edgeId);
     case "split": return s.splitStep(a.id);
     case "promote": return s.promote(a.id);
+    case "make-root": return s.updateNode(a.id, { kind: "root" });
+    case "add-into": {
+      const t = s.nodes[a.id];
+      const title = a.kind === "cause" ? `Why does ${t?.ref ?? "it"} happen?` : a.kind === "fix" ? "What would stop it" : a.kind === "evidence" ? "What shows it" : "First step";
+      const id = s.addInto(a.kind, title, a.id, a.rel);
+      if (id) {
+        s.select({ type: "node", id });
+        s.focus(id, window.innerWidth, window.innerHeight);
+        s.setEditing(id); // straight into typing the answer
+      }
+      return;
+    }
   }
 }
 
@@ -165,6 +177,7 @@ function HolesTab({ flags }: { flags: Flag[] }) {
 const STAGE: Record<Kind, number> = {
   thought: 0, spark: 1, evidence: 1, assumption: 2, snippet: 2, claim: 3, risk: 3, question: 4, conclusion: 4,
   step: 4, milestone: 5, goal: 6, text: 0,
+  fix: 1, root: 2, cause: 3, problem: 5,
 };
 
 function Meter({ score }: { score: number | null }) {

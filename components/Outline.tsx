@@ -36,10 +36,17 @@ const ACTS: Partial<Record<Kind, Act[]>> = {
   ],
   assumption: [{ label: "+ test", kind: "step", rel: "feeds", what: "testing" }],
   goal: [{ label: "+ step", kind: "step", rel: "feeds", what: "towards" }],
+  problem: [{ label: "+ cause", kind: "cause", rel: "feeds", what: "causing" }],
+  cause: [{ label: "+ why", kind: "cause", rel: "feeds", what: "causing" }],
+  root: [
+    { label: "+ fix", kind: "fix", rel: "feeds", what: "fixing" },
+    { label: "+ proof", kind: "evidence", rel: "supports", what: "for" },
+  ],
+  fix: [{ label: "+ step", kind: "step", rel: "feeds", what: "putting in" }],
   milestone: [{ label: "+ step", kind: "step", rel: "feeds", what: "towards" }],
 };
 
-const ROOT_ORDER: Kind[] = ["question", "goal", "conclusion", "milestone", "claim", "step", "assumption", "risk", "evidence", "snippet", "spark", "thought"];
+const ROOT_ORDER: Kind[] = ["question", "problem", "goal", "conclusion", "milestone", "claim", "step", "assumption", "risk", "evidence", "snippet", "spark", "thought"];
 
 /**
  * The sheet as an indented list: each end point (a question, a goal…) with what leads into it

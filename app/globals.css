@@ -20,6 +20,9 @@
   --step: #b9d7ff;
   --snippet: #f5a8ff;
   --risk: #ff9a76;
+  --problem: #ff7a9a;
+  --cause: #ffc078;
+  --fix: #7ef0b0;
   --ok: #7ef0b0;
   --warn: #ff9a76;
 }
@@ -126,6 +129,9 @@ body {
 .bp-step { --accent: var(--step); }
 .bp-snippet { --accent: var(--snippet); }
 .bp-risk { --accent: var(--risk); }
+.bp-problem { --accent: var(--problem); }
+.bp-cause, .bp-root { --accent: var(--cause); }
+.bp-fix { --accent: var(--fix); }
 .bp-accent { color: var(--accent, var(--ink)); display: inline-flex; }
 
 /* Cards: drafting conventions per kind */
@@ -158,6 +164,15 @@ body {
 }
 .bp-card.bp-risk {
   border-color: color-mix(in srgb, var(--risk) 50%, transparent);
+}
+.bp-card.bp-problem {
+  border-color: color-mix(in srgb, var(--problem) 55%, transparent);
+}
+.bp-card.bp-root {
+  border: 2px solid color-mix(in srgb, var(--cause) 70%, transparent);
+}
+.bp-card.bp-fix {
+  border-color: color-mix(in srgb, var(--fix) 45%, transparent);
 }
 .bp-card.bp-snippet {
   border-color: color-mix(in srgb, var(--snippet) 40%, transparent);

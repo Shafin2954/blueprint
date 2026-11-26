@@ -7,7 +7,7 @@
  *   /link E-01 C-02 contradicts
  *   just some text            → a thought
  */
-import { KIND_META, KINDS, STRENGTH, type Kind, type PlanNode, type Rel, type Status, type Strength } from "./types";
+import { KIND_META, KINDS, STRENGTH, type Kind, type PlanNode, type Rel, type Status, type Strength, relVerb } from "./types";
 
 export interface LinkSpec {
   /** "out": new card → ref; "in": ref → new card. */
@@ -53,6 +53,10 @@ const ALIASES: Record<string, Kind> = {
   r: "risk",
   n: "snippet", code: "snippet", quote: "snippet",
   x: "text", label: "text", heading: "text", title: "text",
+  p: "problem", issue: "problem", bug: "problem", symptom: "problem",
+  k: "cause", why: "cause", because: "cause",
+  rc: "root", rootcause: "root", "root-cause": "root",
+  f: "fix", solution: "fix", countermeasure: "fix", remedy: "fix",
 };
 
 export function kindFor(word: string): Kind | null {
@@ -78,7 +82,7 @@ const FIELD_ALIASES: Record<string, FieldName> = {
   strength: "strength", weight: "strength",
   for: "supports", supports: "supports", support: "supports", pro: "supports",
   against: "contradicts", contradicts: "contradicts", con: "contradicts", vs: "contradicts",
-  to: "feeds", feeds: "feeds", then: "feeds", unlocks: "feeds",
+  to: "feeds", feeds: "feeds", then: "feeds", unlocks: "feeds", causes: "feeds", fixes: "feeds",
   answers: "answers", answer: "answers",
   after: "after", needs: "after",
   because: "because", since: "because",
@@ -240,7 +244,9 @@ export function describeAction(action: CommandAction, nodes: Record<string, Plan
     const verb =
       l.dir === "in"
         ? l.rel === "feeds" ? "after" : "because of"
-        : l.rel === "feeds" ? "→ feeds" : l.rel === "supports" && target?.kind === "question" ? "answers" : l.rel;
+        : l.rel === "feeds"
+          ? (() => { const v = relVerb("feeds", target?.kind, action.kind); return v === "feeds into" ? "→ feeds" : v; })()
+          : l.rel === "supports" && target?.kind === "question" ? "answers" : l.rel;
     bits.push(`${verb} ${name(l.ref)}`);
   }
   if (action.strength && action.links.length) bits.push(`(${action.strength} links)`);

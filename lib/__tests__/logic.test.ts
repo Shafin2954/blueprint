@@ -367,3 +367,38 @@ describe("text boxes are decoration", () => {
     expect(tidy(b.nodes, b.edges).x).toBeUndefined();
   });
 });
+
+describe("problem solving", () => {
+  it("asks why for an unexplained problem", () => {
+    const b = board().card("p", "problem");
+    const f = findHoles(b.nodes, b.edges).find((x) => x.title === "Unexplained problem");
+    expect(f?.fix?.action).toMatchObject({ type: "add-into", kind: "cause" });
+  });
+  it("pushes past the first why, then suggests naming the root", () => {
+    const one = board().card("p", "problem").card("c", "cause").link("c", "p");
+    expect(findHoles(one.nodes, one.edges).find((x) => x.title === "No root cause yet")?.fix?.label).toBe("Ask why again");
+    const two = one.card("c2", "cause").link("c2", "c");
+    expect(findHoles(two.nodes, two.edges).find((x) => x.title === "No root cause yet")?.fix?.label).toBe("Make it the root cause");
+  });
+  it("wants a proven root cause with a fix someone is doing", () => {
+    const b = board().card("p", "problem").card("r", "root").link("r", "p");
+    expect(titles(b)).toEqual(expect.arrayContaining(["Root cause, no fix", "Root cause on a hunch"]));
+    const done = b.card("e", "evidence").link("e", "r", "supports").card("f", "fix").link("f", "r").card("t", "step").link("t", "f");
+    const t = titles(done);
+    expect(t).not.toContain("Root cause, no fix");
+    expect(t).not.toContain("Root cause on a hunch");
+    expect(t).not.toContain("A fix nobody's doing");
+    expect(t).not.toContain("No root cause yet");
+  });
+  it("notes a fix aimed at the symptom", () => {
+    const b = board().card("p", "problem").card("c", "cause").link("c", "p").card("f", "fix").link("f", "p");
+    expect(titles(b)).toContain("Treating the symptom");
+  });
+  it("reads cause links as 'causes' and fix links as 'fixes'", async () => {
+    const { relVerb } = await import("../types");
+    expect(relVerb("feeds", "problem", "cause")).toBe("causes");
+    expect(relVerb("feeds", "root", "fix")).toBe("fixes");
+    expect(defaultRel("cause", "problem")).toBe("feeds");
+    expect(defaultRel("evidence", "root")).toBe("supports");
+  });
+});

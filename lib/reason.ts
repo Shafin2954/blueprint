@@ -109,6 +109,9 @@ export const WEIGHABLE = new Set<Kind>(["claim", "conclusion", "assumption", "qu
 
 /** Sensible default meaning for a new link, from what kinds it joins. */
 export function defaultRel(from: Kind, to: Kind): "feeds" | "supports" {
+  // Cause and effect: a cause causes a problem (or a deeper cause); a fix fixes it.
+  if ((from === "cause" || from === "root" || from === "fix") && (to === "problem" || to === "cause" || to === "root")) return "feeds";
+  if (from === "fix" || to === "fix") return "feeds";
   const plan = (k: Kind) => k === "step" || k === "milestone" || k === "goal";
   if (plan(from) && plan(to)) return "feeds";
   if (from === "step" || from === "milestone") return "feeds";
